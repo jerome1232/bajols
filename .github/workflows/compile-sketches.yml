@@ -36,7 +36,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile examples
+      - name: Compile sketches
         uses: arduino/compile-sketches@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -44,9 +44,6 @@ jobs:
           platforms: ${{ matrix.board.platforms }}
           libraries: |
             - source-url: "https://github.com/bmellink/IBusBM"
-              version: 1.1.4
-            # Additional library dependencies can be listed here.
-            # See: https://github.com/arduino/compile-sketches#libraries
           sketch-paths: |
             - src
           enable-deltas-report: true
