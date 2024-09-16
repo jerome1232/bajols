@@ -43,8 +43,6 @@ jobs:
           fqbn: ${{ matrix.board.fqbn }}
           platforms: ${{ matrix.board.platforms }}
           libraries: |
-            # Install the library from the local path.
-            - source-path: ./
             - source-url: "https://github.com/bmellink/IBusBM"
               version: 1.1.4
             # Additional library dependencies can be listed here.
