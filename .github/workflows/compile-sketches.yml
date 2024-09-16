@@ -43,7 +43,7 @@ jobs:
           fqbn: ${{ matrix.board.fqbn }}
           platforms: ${{ matrix.board.platforms }}
           libraries: |
-            - source-url: https://github.com/bmellink/IBusBM/archive/refs/tags/v1.1.5.zip   
+            - source-path: src/Libraries/IBusBM-master.zip
           sketch-paths: |
             - src
           enable-deltas-report: true
