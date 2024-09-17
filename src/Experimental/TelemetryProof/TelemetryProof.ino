@@ -133,7 +133,7 @@ void setup() {
   Serial.println("Adding extended gps sensors");
   IBus.addSensor(IBUS_SENSOR_TYPE_GPS_LAT, IBUS_SENSOR_TYPE_GPS_LAT_SIZE);
   IBus.addSensor(IBUS_SENSOR_TYPE_GPS_LON, IBUS_SENSOR_TYPE_GPS_LON_SIZE);
-  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_ALT, IBUS_SENSOR_TYPE_GPS_ALT);
+  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_ALT, IBUS_SENSOR_TYPE_GPS_ALT_SIZE);
   IBus.addSensor(IBUS_SENSOR_TYPE_GPS_DIST);
   Serial.println("Extended gps sensors added");
 
@@ -143,6 +143,7 @@ void setup() {
   Serial.println(" milliseconds");
   Serial.println("I think you should be able to find and add sensors to screen on controller now?");
   delay(WAIT_TIME * 2);
+
   Serial.print("Streaming telemetry and reading remote every");
   Serial.print(WAIT_TIME);
   Serial.println(" milliseconds");
@@ -160,9 +161,6 @@ void loop() {
   Serial.println("Setting RPM base sensor");
   setBaseSensors();
   Serial.println("RPM base sensor set");
-  Serial.print("Wait ");
-  Serial.print(WAIT_TIME);
-  Serial.println(" ms");
 
   /* 
    * I'm worried these extended sensors won't work
@@ -171,12 +169,13 @@ void loop() {
   Serial.println("Setting GPS extended sensors");
   setGpsSensors(distance);
   Serial.println("GPS extended sensors set");
-  Serial.print("Wait ");
-  Serial.print(WAIT_TIME);
-  Serial.println(" ms");
 
   incrementBaseSensors();
   incrementGpsSensors();
+
+  Serial.print("Wait ");
+  Serial.print(WAIT_TIME);
+  Serial.println(" ms");
   delay(WAIT_TIME);
 
   channelReader();
