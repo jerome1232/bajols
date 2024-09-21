@@ -27,6 +27,7 @@
  */
 #include <IBusBM.h>
 #include <math.h>
+#include "motor.h"
 
 /*
  * Version number
@@ -113,6 +114,8 @@ int_least16_t minChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
 /* Holds the highest values seen for each channel */
 int_least16_t maxChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
 
+Motor::HBridgePWM rotor;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUDRATE);
@@ -184,6 +187,8 @@ void loop() {
   Serial.print(WAIT_TIME);
   Serial.println(" ms");
   delay(WAIT_TIME);
+  
+  rotor.control(Motor::FORWARD, Motor::HBridgePWM::MAX_PWM_VALUE);
 }
 
 /*
