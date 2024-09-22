@@ -46,12 +46,12 @@ const double SCALE_INT_GPS_TO_DEC = 1E-7;
  * decimal GPS data to an
  * integer notation.
  */
-const uint_least32_t SCALE_DEC_GPS_TO_INT = 1E7;
+const uint32_t SCALE_DEC_GPS_TO_INT = 1E7;
 
 /*
  * Constant used to scale meters to centimeters
  */
-const uint_least8_t SCALE_METERS_TO_CENTIMETERS = 100;
+const uint8_t SCALE_METERS_TO_CENTIMETERS = 100;
 
 /* 
  * Extended GPS Sensor addresses 
@@ -60,20 +60,20 @@ const uint_least8_t SCALE_METERS_TO_CENTIMETERS = 100;
  * data sent to sensor
  */
 
-/* Latitude telmetry address Data is type int_least32_t scaled by 1E-7*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LAT = 0x80;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LAT_SIZE = 4; // This sensor uses 4 bytes
+/* Latitude telmetry address Data is type int32_t scaled by 1E-7*/
+const uint8_t IBUS_SENSOR_TYPE_GPS_LAT = 0x80;
+const uint8_t IBUS_SENSOR_TYPE_GPS_LAT_SIZE = 4; // This sensor uses 4 bytes
 
-/* Longitude telmetry address Data is type int_least32_t scaled by 1E-7*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LON = 0x81;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LON_SIZE = 4; // This sensor uses 4 bytes
+/* Longitude telmetry address Data is type int32_t scaled by 1E-7*/
+const uint8_t IBUS_SENSOR_TYPE_GPS_LON = 0x81;
+const uint8_t IBUS_SENSOR_TYPE_GPS_LON_SIZE = 4; // This sensor uses 4 bytes
 
-/* Distance from origin telmetry address Data is type uint_least16_t Unit is centimeters*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_DIST = 0x14;
+/* Distance from origin telmetry address Data is type uint16_t Unit is centimeters*/
+const uint8_t IBUS_SENSOR_TYPE_GPS_DIST = 0x14;
 
-/* Altitude telemetry address Data is type int_least32_t Unit is meters*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_ALT = 0x82;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_ALT_SIZE = 4; // This sensor uses 4 bytes
+/* Altitude telemetry address Data is type int32_t Unit is meters*/
+const uint8_t IBUS_SENSOR_TYPE_GPS_ALT = 0x82;
+const uint8_t IBUS_SENSOR_TYPE_GPS_ALT_SIZE = 4; // This sensor uses 4 bytes
 
 /*
  * Inteligent Bus used to communicate with a
@@ -82,39 +82,45 @@ const uint_least8_t IBUS_SENSOR_TYPE_GPS_ALT_SIZE = 4; // This sensor uses 4 byt
 IBusBM IBus;
 
 /* Amount of time to delay between sensor updates */
-const uint_least16_t WAIT_TIME = 5000;
+const uint16_t WAIT_TIME = 5000;
 
 /* Serial line baudrate */
-const uint_least32_t BAUDRATE = 115200;
+const uint32_t BAUDRATE = 115200;
+
+/*
+ * This is a "fake" gps location, I actually just grabbed it off
+ * of google maps, it's somewhere in smithfield
+ */
 
 /* Home latitude */
-const int_least32_t ORIGIN_LAT = 418437575;
+const int32_t ORIGIN_LAT = 418437575;
 
 /* Home longitude */
-const int_least32_t ORIGIN_LON = -1118449990;
+const int32_t ORIGIN_LON = -1118449990;
 
 /* Fake latitude gps data */
-int_least32_t lat = ORIGIN_LAT;
+int32_t lat = ORIGIN_LAT;
 
 /* Fake longitude gps data */
-int_least32_t lon = ORIGIN_LON;
+int32_t lon = ORIGIN_LON;
 
 /* Fake alitiude gps data in meters */
-int_least32_t alt = 440;
+int32_t alt = 440;
 
 /* Fake rpm sensor data */
-uint_least16_t rpm = 0;
+uint16_t rpm = 0;
 
 /* Size of array holding channel data */
-const int_least8_t CHANNEL_DATA_SIZE = 6;
+const int8_t CHANNEL_DATA_SIZE = 6;
 
 /* Holds the lowest values seen for each channel */
-int_least16_t minChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
+int16_t minChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
 
 /* Holds the highest values seen for each channel */
-int_least16_t maxChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
+int16_t maxChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
 
-Motor::HBridgePWM rotor;
+/* The main screw */
+Motor::HBridgePWM engine;
 
 void setup() {
   // put your setup code here, to run once:
@@ -188,7 +194,7 @@ void loop() {
   Serial.println(" ms");
   delay(WAIT_TIME);
   
-  rotor.control(Motor::FORWARD, Motor::HBridgePWM::MAX_PWM_VALUE);
+  engine.set(Motor::FORWARD, Motor::MAX_PWM_VALUE);
 }
 
 /*
@@ -196,8 +202,8 @@ void loop() {
  */
 void channelReader() {
   Serial.println("Reading data from all 6 channels");
-  int_least16_t channelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
-  for (int_least8_t i = 0; i < CHANNEL_DATA_SIZE; i++) {
+  int16_t channelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
+  for (int8_t i = 0; i < CHANNEL_DATA_SIZE; i++) {
     channelData[i] = IBus.readChannel(i);
 
     if (channelData[i] < minChannelData[i])
@@ -261,7 +267,7 @@ void incrementGpsSensors() {
  * I should figure out a way to do all of this math with ints but it seems fast enough for now
  * This might be functionality done automatically by  a GPS module anyways.
  */
-int16_t computeAproxDistanceCentimeters(int_least32_t lat1, int_least32_t lon1, int_least32_t lat2, int_least32_t lon2) {
+int16_t computeAproxDistanceCentimeters(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2) {
   // Adjust 32 bit integers to a decimal representation
   const double fixedLat1 = double(lat1) * SCALE_INT_GPS_TO_DEC;
   const double fixedLon1 = double(lon1) * SCALE_INT_GPS_TO_DEC;
@@ -306,7 +312,7 @@ int16_t computeAproxDistanceCentimeters(int_least32_t lat1, int_least32_t lon1, 
 /*
  * Print all sensor data to serial monitor
  */
-void printSensorData(const uint_least16_t dist) {
+void printSensorData(const uint16_t dist) {
   Serial.print("Rpm=");
   Serial.println(rpm);
 

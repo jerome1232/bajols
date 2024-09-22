@@ -17,10 +17,39 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
- #include "motor.h"
+#include "motor.h"
 
- void Motor::HBridgePWM::control(Direction direction, uint8_t pwm)
- {
+void Motor::HBridge::forward()
+{
+  digitalWrite(this->INPUT1, HIGH);
+  digitalWrite(this->INPUT2, LOW);
+  this->state = FORWARD;
+}
+
+
+void Motor::HBridge::backward()
+{
+  digitalWrite(this->INPUT1, LOW);
+  digitalWrite(this->INPUT2, HIGH);
+  this->state = BACKWARD;
+}
+
+void Motor::HBridge::stop()
+{
+  digitalWrite(this->INPUT1, HIGH);
+  digitalWrite(this->INPUT2, HIGH);
+  this->state = STOP;
+}
+
+void Motor::HBridge::off()
+{
+  digitalWrite(this->INPUT1, LOW);
+  digitalWrite(this->INPUT2, LOW);
+  this->state = COAST;
+}
+
+void Motor::HBridgePWM::set(Direction direction, uint8_t pwm)
+{
   switch (direction) 
   {
     case FORWARD:
@@ -38,40 +67,31 @@
   }  
 
   this->setSpeed(pwm);
- }
+}
 
- void Motor::HBridgePWM::forward()
- {
-  digitalWrite(this->INPUT1, HIGH);
-  digitalWrite(this->INPUT2, LOW);
-  this->state = FORWARD;
- }
-
- void Motor::HBridgePWM::backward()
- {
-  digitalWrite(this->INPUT1, LOW);
-  digitalWrite(this->INPUT2, HIGH);
-  this->state = BACKWARD;
- }
-
- void Motor::HBridgePWM::setSpeed(uint8_t pwm)
- {
+void Motor::HBridgePWM::setSpeed(uint8_t pwm)
+{
+  if (pwm > MAX_PWM_VALUE)
+  {
+    pwm = MAX_PWM_VALUE;
+  }
+  else if (pwm < MIN_PWM_VALUE)
+  {
+    pwm = MIN_PWM_VALUE;
+  }
+  
   analogWrite(this->PWM_PIN, pwm);
   this->pwmLevel = pwm;
- }
+}
 
- void Motor::HBridgePWM::stop()
- {
-  digitalWrite(this->INPUT1, HIGH);
-  digitalWrite(this->INPUT2, HIGH);
+void Motor::HBridgePWM::stop()
+{
+  HBridge::stop();
   this->setSpeed(MAX_PWM_VALUE);
-  this->state = STOP;
- }
+}
 
- void Motor::HBridgePWM::off()
- {
-  digitalWrite(this->INPUT1, LOW);
-  digitalWrite(this->INPUT2, LOW);
+void Motor::HBridgePWM::off()
+{
+  HBridge::off();
   this->setSpeed(MIN_PWM_VALUE);
-  this->state = COAST;
- }
+}

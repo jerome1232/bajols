@@ -20,6 +20,7 @@
 /*
  * Motor.h - Library for interacting with DC motors.
  */
+
 #ifndef Motor_h
 #define Motor_h
 
@@ -28,59 +29,111 @@
 /* Holds classes for controlling motors */
 namespace Motor
 {
+  /* The max value for pwm duty cycles */
+  const static uint8_t MAX_PWM_VALUE = 255;
+
+  /* The min value for pwm duty cycles */
+  const static uint8_t MIN_PWM_VALUE = 0;
+
+  /*
+   * Possible motor states
+   */
   enum Direction
   {
-    COAST,
-    STOP,
-    FORWARD,
-    BACKWARD
+    COAST, // Motor is in an unpowered state allowing coasting
+    STOP, // Motor is in a powered, stoped state. Will not allow movement
+    FORWARD, // Motor is in a forward state
+    BACKWARD // Motor is in a backwards state
   };
-  
-  /* Encapsulates controlling a DC motor via a motor driver such as the L298N */
-  class HBridgePWM
+
+  /*
+   * Encapsulates the details for running a 
+   * DC motor connected to a typical HBridge such
+   * as the L298N, with PWM motor control diabled
+   * (motor is always fully on or fully off)
+   */
+  class HBridge
   {
     public:
-      /* Represents the max for pwm duty cycles */
-      const static uint8_t MAX_PWM_VALUE = 255;
+      /* Default Constructor */
+      HBridge() : HBridge(DD2, DD3) {};
 
-      /* Represents the min for pwm duty cycles */
-      const static uint8_t MIN_PWM_VALUE = 0;
+      /* Constructor
+       * @param input1 Pin that is used to control direction of motor
+       * @param input2 Pin that is used to control direction of motor
+       */
+      HBridge(uint8_t input1, uint8_t input2)
+      {
+        this->INPUT1 = input1;
+        this->INPUT2 = input2;
+        pinMode(this->INPUT1, OUTPUT);
+        pinMode(this->INPUT2, OUTPUT);
+      };
 
+      /*
+       * Set the motor to go forward
+       */
+      virtual void forward();
+
+      /*
+       * Set the motor to go backward
+       */
+      virtual void backward();
+
+      /*
+       * Set the motors to hard stop
+       */
+      virtual void stop();
+
+      /*
+       * Turn the motors off (coast)
+       */
+      virtual void off();
+
+    protected:
+      /* Pin that controls motor direction */
+      uint8_t INPUT1;
+
+      /* Pin that controls motor direction */
+      uint8_t INPUT2;
+
+      /* Current state of the motor (COAST, STOP, FORWARD, BACKWARDS) */
+      Direction state;
+  };
+
+  /*
+   * Encapsulates the details for running a 
+   * DC motor connected to a typical HBridge such
+   * as the L298N, with PWM motor control enabled
+   */
+  class HBridgePWM : public HBridge
+  {
+    public:
       /* Default Contructor */
-      HBridgePWM() : HBridgePWM(DD2, DD3, DD4) {}
+      HBridgePWM() : HBridgePWM(DD2, DD3, DD4) {};
 
       /* Constructor
        * @param input1 Pin that helps to control direction of motor
        * @param input2 Pin that helps to control direction of motor
        * @param pwmPin Pin that controls speed of motor
        */
-      HBridgePWM(uint8_t input1, uint8_t input2, uint8_t pwmPin) : INPUT1(input1), INPUT2(input2), PWM_PIN(pwmPin)
+      HBridgePWM(uint8_t input1, uint8_t input2, uint8_t pwmPin)
       {
-        pinMode(this->INPUT1, OUTPUT);
-        pinMode(this->INPUT2, OUTPUT);
-        pinMode(this->PWM_PIN, OUTPUT);
+        HBridge(input1, input2);
+        this->PWM_PIN = pwmPin;
+        pinMode(PWM_PIN, OUTPUT);
       };
 
       /*
        * Set speed and direction of motor
-       * @param forward True to go forwards, else backwards
-       * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255.
+       * @param direction Sets direction of motor possible values are COAST, FORWARD, BACKWARD, STOP
+       * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255
        */
-      void control(Direction direction, uint8_t pwm);
-
-      /*
-       * Set the motor to go forward
-       */
-      void forward();
-
-      /*
-       * Set the motor to go backward
-       */
-      void backward();
+      void set(Direction direction, uint8_t pwm);
 
       /*
        * Set the motors speed
-       * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255.
+       * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255
        */
       void setSpeed(uint8_t pwm);
 
@@ -95,23 +148,17 @@ namespace Motor
       void off();
 
     private:
-      /* Pin that controls motor direction */
-      const uint8_t INPUT1;
-
-      /* Pin that controls motor direction */
-      const uint8_t INPUT2;
-
       /* Pin that controls motor speed */
-      const uint8_t PWM_PIN;
+      uint8_t PWM_PIN;
 
-      /* Current rotations per minute */
+      /* 
+       * Current rotations per minute
+       * Unused and inaccessible right now
+       */
       int32_t rpm;
 
       /* Duty Cycle Motor is set */
       uint8_t pwmLevel;
-
-      /* Current state of the motor (COAST, STOP, FORWARD, BACKWARDS) */
-      Direction state;
   };
 }
 
