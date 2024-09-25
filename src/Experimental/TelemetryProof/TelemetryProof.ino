@@ -26,13 +26,8 @@
  * Sketch -> Include Library -> Add .zip library
  */
 
-#define ENABLE_DEBUG
-
-#define DEBUG_SERIAL_PORT     Serial
-#define DEBUG_SER_BAUD_RATE   115200
 
 #include <IBusBM.h>
-#include <MacroDebugger.h>
 
 #include "motor.h"
 #include "data.h"
@@ -50,27 +45,14 @@ Motor::HBridgePWM engine;
 
 void setup()
 {
-  DEBUG_BEGIN();
-
-  DEBUGLN("~");
-  DEBUGLN("Initializing TelemetryStreamTest v%s", VERSION);
-  DEBUGLN("~");
-  DEBUGLN("");
-
   Rx.Begin();
 
   Tx.Begin();
-
-  DEBUGLN("Sensors initialized");
 }
 
 void loop() {
   Rx.Read();
   Tx.SetSensors(Rx);
-
-  DEBUGLN("Throttle: %d", Rx.throttle);
-  DEBUGLN("Rudder: %d", Rx.rudder);
-  DEBUGLN("DivePlane: %d", Rx.divePlane);
 
   /* Act on main screw */
   engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);

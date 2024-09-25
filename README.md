@@ -22,7 +22,7 @@ Libraries needed to compile this sketch
 |Library|Location in Repo|Weblink|Version|
 |-------|----------------|-------|-------|
 |IBusBM|/src/Libraries/IBusBM-1.1.4.zip|[bmellink/IBusBM](https://github.com/bmellink/IBusBM)|1.1.4
-|MacroDebugger|/src/Libraries/MacroDebugger-0.0.1.zip|[Rad-hi/MacroDebugger](https://github.com/Rad-hi/MacroDebugger/tree/0.0.1)|0.0.1
+
 
 ## Wiring
 To wire reciever see this diagram
