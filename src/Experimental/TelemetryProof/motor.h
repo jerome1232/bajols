@@ -147,6 +147,10 @@ namespace Motor
        */
       void off();
 
+      /* 
+       * Get the current state of motors
+       *  FORWARD, BACKWARD, STOP or COAST
+       */
       Direction getState();
 
     private:
@@ -162,6 +166,7 @@ namespace Motor
       /* Duty Cycle Motor is set */
       uint8_t pwmLevel;
 
+      /* Directional state of the motor */
       Direction state;
   };
 }

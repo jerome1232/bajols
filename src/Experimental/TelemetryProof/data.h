@@ -86,8 +86,13 @@ namespace Data
       uint16_t vrB;
 
       private:
+        /* Number of channels to read form reciever */
         const static uint8_t NUM_CHANNELS = 10;
+
+        /* Raw sensor data */
         uint16_t channelData[NUM_CHANNELS];
+
+        /* iBus object */
         IBusBM ibus;
    };
    
@@ -130,7 +135,6 @@ namespace Data
      * After adding sensors to iBus they get assigned indices
      * These store these indices for use when updating the sensor
      */
-
     uint8_t rpmSensor;
     uint8_t presSensor;
     uint8_t voltageSensor;
