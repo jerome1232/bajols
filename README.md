@@ -1,4 +1,4 @@
-![Arduino Lint](https://github.com/jerome1232/bajols/actions/workflows/check-arduino.yml/badge.svg?branch=main) ![Arduino Compile](https://github.com/jerome1232/bajols/actions/workflows/compile-sketches.yml/badge.svg?branch=main)
+![Arduino Lint](https://github.com/jerome1232/bajols/actions/workflows/check-arduino.yml/badge.svg?branch=motor-library) ![Arduino Compile](https://github.com/jerome1232/bajols/actions/workflows/compile-sketches.yml/badge.svg?branch=motor-library)
 
 # bajols
 Remotly controlled semi-autonomous submarine
@@ -16,6 +16,7 @@ increase pressure. You should see changes to altitute as pressure changes.
 It constantly changes heading (shown as '5' sensor on flysky remote)
 Currently heading is 0..360 degrees.
 
+## Compile
 Libraries needed to compile this sketch
 
 |Library|Location in Repo|Weblink|Version|
@@ -23,6 +24,6 @@ Libraries needed to compile this sketch
 |IBusBM|/src/Libraries/IBusBM-1.1.4.zip|[bmellink/IBusBM](https://github.com/bmellink/IBusBM)|1.1.4
 |MacroDebugger|/src/Libraries/MacroDebugger-0.0.1.zip|[Rad-hi/MacroDebugger](https://github.com/Rad-hi/MacroDebugger/tree/0.0.1)|0.0.1
 
-
+## Wiring
 To wire reciever see this diagram
 ![](/Documentation/Wiring/FS-IA6B_reciever_wireing.png)
