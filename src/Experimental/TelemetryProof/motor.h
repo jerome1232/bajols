@@ -147,6 +147,8 @@ namespace Motor
        */
       void off();
 
+      Direction getState();
+
     private:
       /* Pin that controls motor speed */
       uint8_t PWM_PIN;
@@ -159,6 +161,8 @@ namespace Motor
 
       /* Duty Cycle Motor is set */
       uint8_t pwmLevel;
+
+      Direction state;
   };
 }
 

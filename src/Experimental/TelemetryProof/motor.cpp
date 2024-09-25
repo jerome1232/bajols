@@ -95,3 +95,8 @@ void Motor::HBridgePWM::off()
   HBridge::off();
   this->setSpeed(MIN_PWM_VALUE);
 }
+
+Motor::Direction Motor::HBridgePWM::getState()
+{
+  return this->state;
+}
