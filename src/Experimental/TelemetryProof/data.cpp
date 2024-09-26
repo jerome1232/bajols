@@ -50,8 +50,8 @@ Data::Input::Read()
     channelData[i] = ibus.readChannel(i);
   }
 
-  this->rudder = map(channelData[0], MIN_RAW_INPUT, MAX_RAW_INPUT, -15, 15);
-  this->divePlane = map(channelData[1], MIN_RAW_INPUT, MAX_RAW_INPUT, -15, 15);
+  this->rudder = map(channelData[0], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
+  this->divePlane = map(channelData[1], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
   this->throttle = map(channelData[2], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
   switch (channelData[4])
   {

@@ -46,7 +46,6 @@ Motor::HBridgePWM engine;
 void setup()
 {
   Rx.Begin();
-
   Tx.Begin();
 }
 
