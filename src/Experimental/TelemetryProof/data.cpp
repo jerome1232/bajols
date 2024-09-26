@@ -81,6 +81,7 @@ Data::Output::Output()
   this->pres = 101300;
   this->voltage = 960;
   this->heading = 90;
+  this->speedSensor = ibus.addSensor(0x7E);
   this->rpmSensor = ibus.addSensor(IBUSS_RPM);
   this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
   this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
@@ -126,4 +127,5 @@ Data::Output::SetSensors(const Data::Input& input)
   this->ibus.setSensorMeasurement(this->presSensor, this->pres);
   this->ibus.setSensorMeasurement(this->voltageSensor, this->voltage);
   this->ibus.setSensorMeasurement(this->headingSensor, this->heading);
+  this->ibus.setSensorMeasurement(this->speedSensor, this->rpm / 3);
 }

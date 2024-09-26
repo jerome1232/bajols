@@ -130,6 +130,7 @@ namespace Data
     int16_t rpm;
     int16_t voltage;
     int16_t heading;
+    int16_t speed;
 
     /* 
      * After adding sensors to iBus they get assigned indices
@@ -139,6 +140,7 @@ namespace Data
     uint8_t presSensor;
     uint8_t voltageSensor;
     uint8_t headingSensor;
+    uint8_t speedSensor;
 
     /* The iBus object */
     IBusBM ibus;
