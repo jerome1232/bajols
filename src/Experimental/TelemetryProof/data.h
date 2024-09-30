@@ -28,11 +28,15 @@
 namespace Data
 {
   const static uint16_t MIN_RAW_INPUT = 1000;
+  const static uint16_t MID_RAW_INPUT = 1500;
   const static uint16_t MAX_RAW_INPUT = 2000;
   const static int8_t MIN_RUDDER_ANGLE = -15;
   const static int8_t MAX_RUDDER_ANGLE = 15;
   const static int8_t MIN_DIVE_PLANE_ANGLE = -15;
   const static int8_t MAX_DIVE_PLANE_ANGLE = 15;
+
+  /* Number of channels to read form reciever */
+  const static uint8_t NUM_CHANNELS = 10;
 
   /* Possible switch positions */
   enum class SwitchPos
@@ -90,9 +94,6 @@ namespace Data
       uint16_t vrB;
 
       private:
-        /* Number of channels to read form reciever */
-        const static uint8_t NUM_CHANNELS = 10;
-
         /* Raw sensor data */
         uint16_t channelData[NUM_CHANNELS];
 
@@ -103,8 +104,19 @@ namespace Data
    class Output
    {
     public:
-      /* Default constructor */
-      Output();
+      /* Constructor */
+      Output(uint32_t telemDelay): TELM_DELAY(telemDelay)
+      {
+        this->rpm = 0;
+        this->pres = 101300; // Sea level
+        this->voltage = 960; // 9.6 volts
+        this->heading = 90; // Due east?
+        this->speedSensor = ibus.addSensor(0x7E);
+        this->rpmSensor = ibus.addSensor(IBUSS_RPM);
+        this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
+        this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
+        this->headingSensor = ibus.addSensor(HEADING);
+      };
 
       /* Starts serial communication */
       Begin();
@@ -113,40 +125,43 @@ namespace Data
       SetSensors(const Data::Input& input);
 
     private:
-    /* Pressure sensor address */
-    const uint8_t PRESSURE = 0x41;
+      /* Delay between telemetry updates in ms */
+      const uint32_t TELM_DELAY;
 
-    /* Size of pressure sensor data in bytes */
-    const uint8_t PRESSURE_SIZE = 4;
+      /* Pressure sensor address */
+      const uint8_t PRESSURE = 0x41;
 
-    /* 
-    * Heading sensor address, this doesn't seem to be an actual
-    * FlySky address, it shows as '5' and is raw data
-    */
-    const uint8_t HEADING = 0x08;
+      /* Size of pressure sensor data in bytes */
+      const uint8_t PRESSURE_SIZE = 4;
 
-    /* Stores the last time we sent telemetry data in milliseconds */
-    int32_t previousMillis = 0;
+      /* 
+      * Heading sensor address, this doesn't seem to be an actual
+      * FlySky address, it shows as '5' and is raw data
+      */
+      const uint8_t HEADING = 0x08;
 
-    /* Fake sensor data */
-    int32_t pres;
-    int16_t rpm;
-    int16_t voltage;
-    int16_t heading;
-    int16_t speed;
+      /* Stores the last time we sent telemetry data in milliseconds */
+      int32_t previousMillis = 0;
 
-    /* 
-     * After adding sensors to iBus they get assigned indices
-     * These store these indices for use when updating the sensor
-     */
-    uint8_t rpmSensor;
-    uint8_t presSensor;
-    uint8_t voltageSensor;
-    uint8_t headingSensor;
-    uint8_t speedSensor;
+      /* Fake sensor data */
+      int32_t pres;
+      int16_t rpm;
+      int16_t voltage;
+      int16_t heading;
+      int16_t speed;
 
-    /* The iBus object */
-    IBusBM ibus;
+      /* 
+      * After adding sensors to iBus they get assigned indices
+      * These store these indices for use when updating the sensor
+      */
+      uint8_t rpmSensor;
+      uint8_t presSensor;
+      uint8_t voltageSensor;
+      uint8_t headingSensor;
+      uint8_t speedSensor;
+
+      /* The iBus object */
+      IBusBM ibus;
    };
 }
 

@@ -62,12 +62,11 @@ namespace Motor
        * @param input1 Pin that is used to control direction of motor
        * @param input2 Pin that is used to control direction of motor
        */
-      HBridge(uint8_t input1, uint8_t input2)
+      HBridge(const uint8_t input1, const uint8_t input2): INPUT1(input1), INPUT2(input2)
       {
-        this->INPUT1 = input1;
-        this->INPUT2 = input2;
         pinMode(this->INPUT1, OUTPUT);
         pinMode(this->INPUT2, OUTPUT);
+        this->state = Direction::COAST;
       };
 
       /*
@@ -92,10 +91,10 @@ namespace Motor
 
     protected:
       /* Pin that controls motor direction */
-      uint8_t INPUT1;
+      const uint8_t INPUT1;
 
       /* Pin that controls motor direction */
-      uint8_t INPUT2;
+      const uint8_t INPUT2;
 
       /* Current state of the motor (COAST, STOP, FORWARD, BACKWARDS) */
       Direction state;
@@ -117,11 +116,12 @@ namespace Motor
        * @param input2 Pin that helps to control direction of motor
        * @param pwmPin Pin that controls speed of motor
        */
-      HBridgePWM(uint8_t input1, uint8_t input2, uint8_t pwmPin)
+      HBridgePWM(const uint8_t input1, const uint8_t input2, const uint8_t pwmPin) : PWM_PIN(pwmPin)
       {
         HBridge(input1, input2);
-        this->PWM_PIN = pwmPin;
         pinMode(PWM_PIN, OUTPUT);
+        this->state = Direction::COAST;
+        this->pwmLevel = 0;
       };
 
       /*
@@ -142,9 +142,7 @@ namespace Motor
        */
       void stop();
 
-      /*
-       * Turn the motors off (coast)
-       */
+      /* Turn the motors off (coast) */
       void off();
 
       /* 
@@ -152,6 +150,9 @@ namespace Motor
        *  FORWARD, BACKWARD, STOP or COAST
        */
       Direction getState();
+
+      /* Get the current speed of the motor */
+      uint8_t getSpeed();
 
     private:
       /* Pin that controls motor speed */
@@ -165,9 +166,6 @@ namespace Motor
 
       /* Duty Cycle Motor is set */
       uint8_t pwmLevel;
-
-      /* Directional state of the motor */
-      Direction state;
   };
 }
 

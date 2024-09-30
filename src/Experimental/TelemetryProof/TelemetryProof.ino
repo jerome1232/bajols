@@ -25,8 +25,6 @@
  * Add to sketch in Arduino ide
  * Sketch -> Include Library -> Add .zip library
  */
-
-
 #include <IBusBM.h>
 
 #include "motor.h"
@@ -37,8 +35,13 @@
  */
 const String VERSION = "0.0.3";
 
+const int32_t TELEM_DELAY = 100;
+
+/* Rx data received from controller */
 Data::Input Rx;
-Data::Output Tx;
+
+/* Tx data we are sending to controller */
+Data::Output Tx(TELEM_DELAY);
 
 /* The main screw */
 Motor::HBridgePWM engine;
@@ -53,6 +56,5 @@ void loop() {
   Rx.Read();
   Tx.SetSensors(Rx);
 
-  /* Act on main screw */
   engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
 }

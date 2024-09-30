@@ -55,38 +55,25 @@ Data::Input::Read()
   this->throttle = map(channelData[2], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
   switch (channelData[4])
   {
-    case 1000:
+    case MIN_RAW_INPUT:
       this->swA = SwitchPos::UP;
       break;
-    case 2000:
+    case MAX_RAW_INPUT:
       this->swA = SwitchPos::DOWN;
       break;
   }
   switch (channelData[6]) 
   {
-    case 1000:
+    case MIN_RAW_INPUT:
       this->swC = ThreeWaySwitchPos::UP;
       break;
-    case 1500:
+    case MID_RAW_INPUT:
       this->swC = ThreeWaySwitchPos::MIDDLE;
       break;
-    case 2000:
+    case MAX_RAW_INPUT:
       this->swC = ThreeWaySwitchPos::DOWN;
   }
 };
-
-Data::Output::Output()
-{
-  this->rpm = 0;
-  this->pres = 101300;
-  this->voltage = 960;
-  this->heading = 90;
-  this->speedSensor = ibus.addSensor(0x7E);
-  this->rpmSensor = ibus.addSensor(IBUSS_RPM);
-  this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
-  this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
-  this->headingSensor = ibus.addSensor(HEADING);
-}
 
 Data::Output::Begin()
 {
@@ -97,7 +84,7 @@ Data::Output::SetSensors(const Data::Input& input)
 {
   uint32_t currentMillis = millis();
 
-  if (currentMillis - this->previousMillis <= 100)
+  if (currentMillis - this->previousMillis <= TELM_DELAY)
   {
     return;
   }
