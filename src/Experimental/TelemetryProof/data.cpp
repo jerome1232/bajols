@@ -19,7 +19,6 @@
 
 #include "data.h"
 
-
 Data::Input::Input()
 {
   this->throttle = 0;
@@ -48,11 +47,16 @@ Data::Input::Read()
   for (uint8_t i = 0; i < NUM_CHANNELS; i++)
   {
     channelData[i] = ibus.readChannel(i);
+    DEBUG_PRINT_TRACE("Read channel ");
+    DEBUG_PRINT_TRACE(i);
+    DEBUG_PRINT_TRACE(" : ");
+    DEBUG_PRINTLN_TRACE(channelData[i]);
   }
 
   this->rudder = map(channelData[0], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
   this->divePlane = map(channelData[1], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
   this->throttle = map(channelData[2], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
+
   switch (channelData[4])
   {
     case MIN_RAW_INPUT:
@@ -73,6 +77,35 @@ Data::Input::Read()
     case MAX_RAW_INPUT:
       this->swC = ThreeWaySwitchPos::DOWN;
   }
+
+  DEBUG_PRINTLN_TRACE("Raw to Mapped data values");
+  DEBUG_PRINTLN_TRACE("-------------------------");
+  DEBUG_PRINTLN_TRACE("Object\t\t|\tRaw\t|\tMapped");
+
+  DEBUG_PRINT_TRACE("Rudder\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[0]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->rudder);
+
+  DEBUG_PRINT_TRACE("Dive Plane\t|\t");
+  DEBUG_PRINT_TRACE(channelData[1]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->divePlane);
+
+  DEBUG_PRINT_TRACE("Throttle\t|\t");
+  DEBUG_PRINT_TRACE(channelData[2]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->throttle);
+
+  DEBUG_PRINT_TRACE("swA\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[4]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(int(this->swA));
+
+  DEBUG_PRINT_TRACE("swC\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[6]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(int(this->swC));
 };
 
 Data::Output::Begin()
@@ -92,7 +125,6 @@ Data::Output::SetSensors(const Data::Input& input)
   this->previousMillis = currentMillis;
 
   rpm = input.throttle * 10;
-
   switch (input.swC) 
   {
     case ThreeWaySwitchPos::UP:
@@ -103,16 +135,40 @@ Data::Output::SetSensors(const Data::Input& input)
       break;
   }
 
-  this->voltage--;
+  if (count > 50 )
+  {
+    this->voltage--;
+    count = 0;
+  }
+  count++;
+
   this->heading++;
-  if (this->heading > 360)
+  if (this->heading > 359)
   {
     this->heading = 0;
   }
 
+  this->speed = rpm / 3;
+
+  DEBUG_PRINTLN_INFO("Streaming Telemetry");
   this->ibus.setSensorMeasurement(this->rpmSensor, this->rpm);
   this->ibus.setSensorMeasurement(this->presSensor, this->pres);
   this->ibus.setSensorMeasurement(this->voltageSensor, this->voltage);
   this->ibus.setSensorMeasurement(this->headingSensor, this->heading);
-  this->ibus.setSensorMeasurement(this->speedSensor, this->rpm / 3);
+  this->ibus.setSensorMeasurement(this->speedSensor, this->speed);
+
+  DEBUG_PRINT_INFO("Pressure :\t");
+  DEBUG_PRINTLN_INFO(this->pres);
+
+  DEBUG_PRINT_INFO("Heading :\t");
+  DEBUG_PRINTLN_INFO(this->heading);
+
+  DEBUG_PRINT_INFO("RPM :\t");
+  DEBUG_PRINTLN_INFO(this->rpm);
+
+  DEBUG_PRINT_INFO("Speed :\t");
+  DEBUG_PRINTLN_INFO(this->speed);
+
+  DEBUG_PRINT_INFO("Volts :\t");
+  DEBUG_PRINTLN_INFO(this->voltage);
 }

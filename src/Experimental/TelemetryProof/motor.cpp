@@ -50,6 +50,7 @@ void Motor::HBridge::off()
 
 void Motor::HBridgePWM::set(Direction direction, uint8_t pwm)
 {
+  DEBUG_PRINTLN_INFO("Set called");
   switch (direction) 
   {
     case FORWARD:

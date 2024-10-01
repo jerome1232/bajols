@@ -20,9 +20,15 @@
 #ifndef DATA_h
 #define DATA_h
 
+// #define DEBUG_TRACE
+// #define DEBUG_WARN
+// #define DEBUG_ERROR
+// #define DEBUG_INFO
+
 #include "Arduino.h"
 #include "IBusBM.h"
 #include "motor.h"
+#include "debug.h"
 
 /* Holds classes for controlling motors */
 namespace Data
@@ -111,6 +117,7 @@ namespace Data
         this->pres = 101300; // Sea level
         this->voltage = 960; // 9.6 volts
         this->heading = 90; // Due east?
+        this->speed = 0;
         this->speedSensor = ibus.addSensor(0x7E);
         this->rpmSensor = ibus.addSensor(IBUSS_RPM);
         this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
@@ -142,6 +149,8 @@ namespace Data
 
       /* Stores the last time we sent telemetry data in milliseconds */
       int32_t previousMillis = 0;
+
+      int16_t count = 0;
 
       /* Fake sensor data */
       int32_t pres;

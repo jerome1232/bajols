@@ -25,10 +25,23 @@
  * Add to sketch in Arduino ide
  * Sketch -> Include Library -> Add .zip library
  */
+
+
+/*
+ * Uncomment one of these to enable debug logging to
+ * the serial monitor. INFO is the least verbose to
+ * TRACE should positivly overwhelm you with logging.
+ */
+// #define DEBUG_TRACE
+// #define DEBUG_WARN
+// #define DEBUG_ERROR
+// #define DEBUG_INFO
+
 #include <IBusBM.h>
 
 #include "motor.h"
 #include "data.h"
+#include "debug.h"
 
 /*
  * Version number
@@ -36,6 +49,8 @@
 const String VERSION = "0.0.3";
 
 const int32_t TELEM_DELAY = 100;
+
+const uint32_t BAUD_RATE = 115200;
 
 /* Rx data received from controller */
 Data::Input Rx;
@@ -50,11 +65,16 @@ void setup()
 {
   Rx.Begin();
   Tx.Begin();
+  Serial.begin(BAUD_RATE);
 }
 
 void loop() {
   Rx.Read();
   Tx.SetSensors(Rx);
 
+  DEBUG_PRINT_TRACE("Setting engine to ");
+  DEBUG_PRINT_TRACE(int(Rx.swA));
+  DEBUG_PRINT_TRACE(" with throttle at ");
+  DEBUG_PRINTLN_TRACE(Rx.throttle);
   engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
 }
