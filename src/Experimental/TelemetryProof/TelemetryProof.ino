@@ -42,6 +42,7 @@
 #include "motor.h"
 #include "data.h"
 #include "debug.h"
+#include "Servo.h"
 
 /*
  * Version number
@@ -61,11 +62,18 @@ Data::Output Tx(TELEM_DELAY);
 /* The main screw */
 Motor::HBridgePWM engine;
 
+Servo rudder;
+
+Servo divePlane;
+
 void setup()
 {
+  Serial.begin(BAUD_RATE);
   Rx.Begin();
   Tx.Begin();
-  Serial.begin(BAUD_RATE);
+  rudder.attach(DD5);
+  divePlane.attach(DD6);
+  delay(TELEM_DELAY);
 }
 
 void loop() {
@@ -77,4 +85,6 @@ void loop() {
   DEBUG_PRINT_TRACE(" with throttle at ");
   DEBUG_PRINTLN_TRACE(Rx.throttle);
   engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+  rudder.write(Rx.rudder);
+  divePlane.write(Rx.divePlane);
 }

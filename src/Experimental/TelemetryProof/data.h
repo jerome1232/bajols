@@ -30,7 +30,7 @@
 #include "motor.h"
 #include "debug.h"
 
-/* Holds classes for controlling motors */
+/* Holds classes for working with Rx/Tx */
 namespace Data
 {
   const static uint16_t MIN_RAW_INPUT = 1000;
@@ -40,9 +40,6 @@ namespace Data
   const static int8_t MAX_RUDDER_ANGLE = 15;
   const static int8_t MIN_DIVE_PLANE_ANGLE = -15;
   const static int8_t MAX_DIVE_PLANE_ANGLE = 15;
-
-  /* Number of channels to read form reciever */
-  const static uint8_t NUM_CHANNELS = 10;
 
   /* Possible switch positions */
   enum class SwitchPos
@@ -100,6 +97,9 @@ namespace Data
       uint16_t vrB;
 
       private:
+        /* Number of channels to read from reciever */
+        const static uint8_t NUM_CHANNELS = 10;
+
         /* Raw sensor data */
         uint16_t channelData[NUM_CHANNELS];
 
@@ -118,11 +118,6 @@ namespace Data
         this->voltage = 960; // 9.6 volts
         this->heading = 90; // Due east?
         this->speed = 0;
-        this->speedSensor = ibus.addSensor(0x7E);
-        this->rpmSensor = ibus.addSensor(IBUSS_RPM);
-        this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
-        this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
-        this->headingSensor = ibus.addSensor(HEADING);
       };
 
       /* Starts serial communication */
@@ -146,6 +141,9 @@ namespace Data
       * FlySky address, it shows as '5' and is raw data
       */
       const uint8_t HEADING = 0x08;
+
+      /* Speed sensor address */
+      const uint8_t SPEED = 0x7E;
 
       /* Stores the last time we sent telemetry data in milliseconds */
       int32_t previousMillis = 0;

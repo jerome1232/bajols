@@ -111,6 +111,22 @@ Data::Input::Read()
 Data::Output::Begin()
 {
   this->ibus.begin(Serial2);
+  this->speedSensor = ibus.addSensor(SPEED);
+  this->rpmSensor = ibus.addSensor(IBUSS_RPM);
+  this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
+  this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
+  this->headingSensor = ibus.addSensor(HEADING);
+
+  DEBUG_PRINT_INFO("Speed sensor index: ");
+  DEBUG_PRINTLN_INFO(this->speedSensor);
+  DEBUG_PRINT_INFO("RPM sensor index: ");
+  DEBUG_PRINTLN_INFO(this->rpmSensor);
+  DEBUG_PRINT_INFO("Pressure sensor index: ");
+  DEBUG_PRINTLN_INFO(this->presSensor);
+  DEBUG_PRINT_INFO("Voltage sensor index: ");
+  DEBUG_PRINTLN_INFO(this->voltageSensor);
+  DEBUG_PRINT_INFO("Heading sensor index: ");
+  DEBUG_PRINTLN_INFO(this->headingSensor);
 }
 
 Data::Output::SetSensors(const Data::Input& input)
@@ -163,12 +179,12 @@ Data::Output::SetSensors(const Data::Input& input)
   DEBUG_PRINT_INFO("Heading :\t");
   DEBUG_PRINTLN_INFO(this->heading);
 
-  DEBUG_PRINT_INFO("RPM :\t");
+  DEBUG_PRINT_INFO("RPM :\t\t");
   DEBUG_PRINTLN_INFO(this->rpm);
 
-  DEBUG_PRINT_INFO("Speed :\t");
+  DEBUG_PRINT_INFO("Speed :\t\t");
   DEBUG_PRINTLN_INFO(this->speed);
 
-  DEBUG_PRINT_INFO("Volts :\t");
+  DEBUG_PRINT_INFO("Volts :\t\t");
   DEBUG_PRINTLN_INFO(this->voltage);
 }
