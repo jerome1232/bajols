@@ -44,7 +44,7 @@ jobs:
           platforms: ${{ matrix.board.platforms }}
           libraries: |
             - source-url: https://github.com/bmellink/IBusBM/archive/refs/tags/v1.1.4.zip
-            - source-url: git@github.com:arduino-libraries/Servo.git
+            - source-url: https://github.com/arduino-libraries/Servo.git
           sketch-paths: |
             - src
           enable-deltas-report: true
