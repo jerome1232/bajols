@@ -17,106 +17,35 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef DATA_h
-#define DATA_h
+#ifndef OUTPUT_h
+#define OUTPUT_h
+
+#include "dataUtils.h"
+#include "Arduino.h"
+#include "IBusBM.h"
+#include "motor.h"
+#include "debug.h"
+#include "input.h"
 
 // #define DEBUG_TRACE
 // #define DEBUG_WARN
 // #define DEBUG_ERROR
 // #define DEBUG_INFO
 
-#include "Arduino.h"
-#include "IBusBM.h"
-#include "motor.h"
-#include "debug.h"
-
 /* Holds classes for working with Rx/Tx */
 namespace Data
 {
-  const static uint16_t MIN_RAW_INPUT = 1000;
-  const static uint16_t MID_RAW_INPUT = 1500;
-  const static uint16_t MAX_RAW_INPUT = 2000;
-  const static int8_t MIN_RUDDER_ANGLE = -15;
-  const static int8_t MAX_RUDDER_ANGLE = 15;
-  const static int8_t MIN_DIVE_PLANE_ANGLE = -15;
-  const static int8_t MAX_DIVE_PLANE_ANGLE = 15;
-
-  /* Possible switch positions */
-  enum class SwitchPos
+  class Output
   {
-    UP,
-    DOWN
-  };
-
-  /* Possible 3 way switch postions */
-  enum class ThreeWaySwitchPos
-  {
-    UP,
-    MIDDLE,
-    DOWN
-  };
-
-  /* Transformed controller inpus */
-  class Input
-  {
-    public:
-      /* Default constructor */
-      Input();
-
-      /* Starts serial communication */
-      Begin();
-
-      /* Read data */
-      Read();
-
-      /* Throttle value, between 0 and 255 */
-      uint8_t throttle;
-
-      /* Rudder angle, between -15 and 15 */
-      int8_t rudder;
-
-      /* Dive Plane angle, between -15 and 15 */
-      int8_t divePlane;
-
-      /* Throttle reverse switch */
-      SwitchPos swA;
-
-      /* Unknown use */
-      SwitchPos swB;
-
-      /* Ballast control */
-      ThreeWaySwitchPos swC;
-
-      /* Unknown use */
-      SwitchPos swD;
-
-      /* Unknown use */
-      uint16_t vrA;
-
-      /* Unknown use */
-      uint16_t vrB;
-
-      private:
-        /* Number of channels to read from reciever */
-        const static uint8_t NUM_CHANNELS = 10;
-
-        /* Raw sensor data */
-        uint16_t channelData[NUM_CHANNELS];
-
-        /* iBus object */
-        IBusBM ibus;
-   };
-   
-   class Output
-   {
     public:
       /* Constructor */
-      Output(uint32_t telemDelay): TELM_DELAY(telemDelay)
+      Output(uint32_t telemDelay)
+        : TELM_DELAY(telemDelay) 
       {
         this->rpm = 0;
-        this->pres = 101300; // Sea level
-        this->voltage = 960; // 9.6 volts
-        this->heading = 90; // Due east?
+        this->pres = 101300;  // Sea level
+        this->voltage = 960;  // 9.6 volts
+        this->heading = 90;   // Due east?
         this->speed = 0;
       };
 
@@ -169,7 +98,7 @@ namespace Data
 
       /* The iBus object */
       IBusBM ibus;
-   };
+  };
 }
 
 #endif

@@ -40,7 +40,8 @@
 #include <IBusBM.h>
 
 #include "motor.h"
-#include "data.h"
+#include "input.h"
+#include "output.h"
 #include "debug.h"
 #include "Servo.h"
 
