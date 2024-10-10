@@ -30,6 +30,7 @@
 // #define DEBUG_INFO
 
 #include "Arduino.h"
+#include "Encoder.h"
 #include "debug.h"
 
 /* Holds classes for controlling motors */
@@ -62,7 +63,7 @@ namespace Motor
   {
     public:
       /* Default Constructor */
-      HBridge() : HBridge(DD2, DD3) {};
+      HBridge() : HBridge(2, 3) {};
 
       /* Constructor
        * @param input1 Pin that is used to control direction of motor
@@ -115,7 +116,7 @@ namespace Motor
   {
     public:
       /* Default Contructor */
-      HBridgePWM() : HBridgePWM(DD2, DD3, DD4) {};
+      HBridgePWM() : HBridgePWM(2, 3, 4) {};
 
       /* Constructor
        * @param input1 Pin that helps to control direction of motor
@@ -135,21 +136,21 @@ namespace Motor
        * @param direction Sets direction of motor possible values are COAST, FORWARD, BACKWARD, STOP
        * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255
        */
-      void set(Direction direction, uint8_t pwm);
+      virtual void set(Direction direction, uint8_t pwm);
 
       /*
        * Set the motors speed
        * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255
        */
-      void setSpeed(uint8_t pwm);
+      virtual void setSpeed(uint8_t pwm);
 
       /*
        * Set the motors to hard stop
        */
-      void stop();
+      virtual void stop();
 
       /* Turn the motors off (coast) */
-      void off();
+      virtual void off();
 
       /* 
        * Get the current state of motors
@@ -164,14 +165,63 @@ namespace Motor
       /* Pin that controls motor speed */
       uint8_t PWM_PIN;
 
-      /* 
-       * Current rotations per minute
-       * Unused and inaccessible right now
-       */
-      int32_t rpm;
-
       /* Duty Cycle Motor is set */
       uint8_t pwmLevel;
+  };
+
+  class HBridgePWMEnc : protected HBridgePWM
+  {
+    public:
+      HBridgePWMEnc() : HBridgePWMEnc(2, 3, 4, 21, 22) {};
+      
+      HBridgePWMEnc(uint8_t input1, uint8_t input2, uint8_t pwmPin, uint8_t interupt1, uint8_t interupt2)
+      {
+        HBridgePWM(input1, input2, pwmPin);
+        this->encoder = new Encoder(interupt1, interupt2);
+      };
+
+      /*
+       * Set speed and direction of motor
+       * @param direction Sets direction of motor possible values are COAST, FORWARD, BACKWARD, STOP
+       * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      void set(Direction direction, uint8_t pwm) override;
+
+      /*
+       * Set the motors speed
+       * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      void setSpeed(uint8_t speed) override;
+
+      /*
+       * Set the motors to hard stop
+       */
+      void stop() override;
+
+      /* Turn the motors off (coast) */
+      void off() override;
+
+      int32_t getRpm()
+      {
+        return this->rpm;
+      }
+
+      private:
+        /* 
+        * Current rotations per minute
+        * Unused and inaccessible right now
+        */
+        int32_t rpm;
+
+        /*
+         * Encoder for reading motor speed
+         */
+        Encoder* encoder = nullptr;
+
+        /*
+         * Reads encoder
+         */
+        void read();
   };
 }
 

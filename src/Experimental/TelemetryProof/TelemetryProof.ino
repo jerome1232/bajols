@@ -35,7 +35,7 @@
 // #define DEBUG_TRACE
 // #define DEBUG_WARN
 // #define DEBUG_ERROR
-// #define DEBUG_INFO
+#define DEBUG_INFO
 
 #include <IBusBM.h>
 
@@ -61,7 +61,7 @@ Data::Input Rx;
 Data::Output Tx(TELEM_DELAY);
 
 /* The main screw */
-Motor::HBridgePWM engine;
+Motor::HBridgePWMEnc engine;
 
 Servo rudder;
 
@@ -86,6 +86,8 @@ void loop() {
   DEBUG_PRINT_TRACE(" with throttle at ");
   DEBUG_PRINTLN_TRACE(Rx.throttle);
   engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+  DEBUG_PRINT_INFO("Rpm: ");
+  DEBUG_PRINTLN_INFO(engine.getRpm());
   rudder.write(Rx.rudder);
   divePlane.write(Rx.divePlane);
 }

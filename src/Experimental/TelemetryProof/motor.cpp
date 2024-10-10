@@ -101,3 +101,33 @@ Motor::Direction Motor::HBridgePWM::getState()
 {
   return this->state;
 }
+
+void Motor::HBridgePWMEnc::read()
+{
+  int32_t value = this->encoder->read();
+  this->rpm = value;
+}
+
+void Motor::HBridgePWMEnc::set(Motor::Direction direction, uint8_t speed)
+{
+  Motor::HBridgePWM::set(direction, speed);
+  Motor::HBridgePWMEnc::read();
+}
+
+void Motor::HBridgePWMEnc::setSpeed(uint8_t speed)
+{
+  Motor::HBridgePWM::setSpeed(speed);
+  Motor::HBridgePWMEnc::read();
+}
+
+void Motor::HBridgePWMEnc::off()
+{
+  Motor::HBridgePWM::off();
+  Motor::HBridgePWMEnc::read();
+}
+
+void Motor::HBridgePWMEnc::stop()
+{
+  Motor::HBridgePWM::off();
+  this->rpm = 0;
+}
