@@ -72,8 +72,8 @@ void setup()
   Serial.begin(BAUD_RATE);
   Rx.Begin();
   Tx.Begin();
-  rudder.attach(DD5);
-  divePlane.attach(DD6);
+  rudder.attach(5);
+  divePlane.attach(6);
   delay(TELEM_DELAY);
 }
 
