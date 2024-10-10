@@ -1,0 +1,109 @@
+/*
+ * The TelemetryStreamTest application.
+ *
+ * Copyright (C) 2024 Jeremy D. Jones <j.jones1232@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "input.h"
+
+Data::Input::Input()
+{
+  this->throttle = 0;
+  this->rudder = 0;
+  this->divePlane = 0;
+  this->swA = SwitchPos::UP;
+  this->swB = SwitchPos::UP;
+  this->swC = ThreeWaySwitchPos::UP;
+  this->swD = SwitchPos::UP;
+  this->vrA = MIN_RAW_INPUT;
+  this->vrB = MIN_RAW_INPUT;
+
+  for (uint8_t i = 0; i < NUM_CHANNELS; i++)
+  {
+    channelData[i] = MIN_RAW_INPUT;
+  }
+};
+
+Data::Input::Begin()
+{
+  ibus.begin(Serial1);
+}
+
+Data::Input::Read()
+{
+  for (uint8_t i = 0; i < NUM_CHANNELS; i++)
+  {
+    channelData[i] = ibus.readChannel(i);
+    DEBUG_PRINT_TRACE("Read channel ");
+    DEBUG_PRINT_TRACE(i);
+    DEBUG_PRINT_TRACE(" : ");
+    DEBUG_PRINTLN_TRACE(channelData[i]);
+  }
+
+  this->rudder = map(channelData[0], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
+  this->divePlane = map(channelData[1], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
+  this->throttle = map(channelData[2], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
+
+  switch (channelData[4])
+  {
+    case MIN_RAW_INPUT:
+      this->swA = SwitchPos::UP;
+      break;
+    case MAX_RAW_INPUT:
+      this->swA = SwitchPos::DOWN;
+      break;
+  }
+  switch (channelData[6]) 
+  {
+    case MIN_RAW_INPUT:
+      this->swC = ThreeWaySwitchPos::UP;
+      break;
+    case MID_RAW_INPUT:
+      this->swC = ThreeWaySwitchPos::MIDDLE;
+      break;
+    case MAX_RAW_INPUT:
+      this->swC = ThreeWaySwitchPos::DOWN;
+  }
+
+  DEBUG_PRINTLN_TRACE("Raw to Mapped data values");
+  DEBUG_PRINTLN_TRACE("-------------------------");
+  DEBUG_PRINTLN_TRACE("Object\t\t|\tRaw\t|\tMapped");
+
+  DEBUG_PRINT_TRACE("Rudder\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[0]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->rudder);
+
+  DEBUG_PRINT_TRACE("Dive Plane\t|\t");
+  DEBUG_PRINT_TRACE(channelData[1]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->divePlane);
+
+  DEBUG_PRINT_TRACE("Throttle\t|\t");
+  DEBUG_PRINT_TRACE(channelData[2]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(this->throttle);
+
+  DEBUG_PRINT_TRACE("swA\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[4]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(int(this->swA));
+
+  DEBUG_PRINT_TRACE("swC\t\t|\t");
+  DEBUG_PRINT_TRACE(channelData[6]);
+  DEBUG_PRINT_TRACE("\t|\t");
+  DEBUG_PRINTLN_TRACE(int(this->swC));
+};

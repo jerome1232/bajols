@@ -1,0 +1,228 @@
+/*
+ * The TelemetryStreamTest application.
+ *
+ * Copyright (C) 2024 Jeremy D. Jones <j.jones1232@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Motor.h - Library for interacting with DC motors.
+ */
+
+#ifndef Motor_h
+#define Motor_h
+
+// #define DEBUG_TRACE
+// #define DEBUG_WARN
+// #define DEBUG_ERROR
+// #define DEBUG_INFO
+
+#include "Arduino.h"
+#include "Encoder.h"
+#include "debug.h"
+
+/* Holds classes for controlling motors */
+namespace Motor
+{
+  /* The max value for pwm duty cycles */
+  const static uint8_t MAX_PWM_VALUE = 255;
+
+  /* The min value for pwm duty cycles */
+  const static uint8_t MIN_PWM_VALUE = 0;
+
+  /*
+   * Possible motor states
+   */
+  enum Direction
+  {
+    COAST, // Motor is in an unpowered state allowing coasting
+    STOP, // Motor is in a powered, stoped state. Will not allow movement
+    FORWARD, // Motor is in a forward state
+    BACKWARD // Motor is in a backwards state
+  };
+
+  /*
+   * Encapsulates the details for running a 
+   * DC motor connected to a typical HBridge such
+   * as the L298N, with PWM motor control diabled
+   * (motor is always fully on or fully off)
+   */
+  class HBridge
+  {
+    public:
+      /* Default Constructor */
+      HBridge() : HBridge(2, 3) {};
+
+      /* Constructor
+       * @param input1 Pin that is used to control direction of motor
+       * @param input2 Pin that is used to control direction of motor
+       */
+      HBridge(const uint8_t input1, const uint8_t input2): INPUT1(input1), INPUT2(input2)
+      {
+        pinMode(this->INPUT1, OUTPUT);
+        pinMode(this->INPUT2, OUTPUT);
+        this->state = Direction::COAST;
+      };
+
+      /*
+       * Set the motor to go forward
+       */
+      virtual void forward();
+
+      /*
+       * Set the motor to go backward
+       */
+      virtual void backward();
+
+      /*
+       * Set the motors to hard stop
+       */
+      virtual void stop();
+
+      /*
+       * Turn the motors off (coast)
+       */
+      virtual void off();
+
+    protected:
+      /* Pin that controls motor direction */
+      const uint8_t INPUT1;
+
+      /* Pin that controls motor direction */
+      const uint8_t INPUT2;
+
+      /* Current state of the motor (COAST, STOP, FORWARD, BACKWARDS) */
+      Direction state;
+  };
+
+  /*
+   * Encapsulates the details for running a 
+   * DC motor connected to a typical HBridge such
+   * as the L298N, with PWM motor control enabled
+   */
+  class HBridgePWM : public HBridge
+  {
+    public:
+      /* Default Contructor */
+      HBridgePWM() : HBridgePWM(2, 3, 4) {};
+
+      /* Constructor
+       * @param input1 Pin that helps to control direction of motor
+       * @param input2 Pin that helps to control direction of motor
+       * @param pwmPin Pin that controls speed of motor
+       */
+      HBridgePWM(const uint8_t input1, const uint8_t input2, const uint8_t pwmPin) : PWM_PIN(pwmPin)
+      {
+        HBridge(input1, input2);
+        pinMode(PWM_PIN, OUTPUT);
+        this->state = Direction::COAST;
+        this->pwmLevel = 0;
+      };
+
+      /*
+       * Set speed and direction of motor
+       * @param direction Sets direction of motor possible values are COAST, FORWARD, BACKWARD, STOP
+       * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      virtual void set(Direction direction, uint8_t pwm);
+
+      /*
+       * Set the motors speed
+       * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      virtual void setSpeed(uint8_t pwm);
+
+      /*
+       * Set the motors to hard stop
+       */
+      virtual void stop();
+
+      /* Turn the motors off (coast) */
+      virtual void off();
+
+      /* 
+       * Get the current state of motors
+       *  FORWARD, BACKWARD, STOP or COAST
+       */
+      Direction getState();
+
+      /* Get the current speed of the motor */
+      uint8_t getSpeed();
+
+    private:
+      /* Pin that controls motor speed */
+      uint8_t PWM_PIN;
+
+      /* Duty Cycle Motor is set */
+      uint8_t pwmLevel;
+  };
+
+  class HBridgePWMEnc : protected HBridgePWM
+  {
+    public:
+      HBridgePWMEnc() : HBridgePWMEnc(2, 3, 4, 21, 22) {};
+      
+      HBridgePWMEnc(uint8_t input1, uint8_t input2, uint8_t pwmPin, uint8_t interupt1, uint8_t interupt2)
+      {
+        HBridgePWM(input1, input2, pwmPin);
+        this->encoder = new Encoder(interupt1, interupt2);
+      };
+
+      /*
+       * Set speed and direction of motor
+       * @param direction Sets direction of motor possible values are COAST, FORWARD, BACKWARD, STOP
+       * @param pwm Set duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      void set(Direction direction, uint8_t pwm) override;
+
+      /*
+       * Set the motors speed
+       * @param pwm The duty cycle (on portion) of pwm pulse, higher is faster, max of 255
+       */
+      void setSpeed(uint8_t speed) override;
+
+      /*
+       * Set the motors to hard stop
+       */
+      void stop() override;
+
+      /* Turn the motors off (coast) */
+      void off() override;
+
+      int32_t getRpm()
+      {
+        return this->rpm;
+      }
+
+      private:
+        /* 
+        * Current rotations per minute
+        * Unused and inaccessible right now
+        */
+        int32_t rpm;
+
+        /*
+         * Encoder for reading motor speed
+         */
+        Encoder* encoder = nullptr;
+
+        /*
+         * Reads encoder
+         */
+        void read();
+  };
+}
+
+#endif
