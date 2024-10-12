@@ -23,7 +23,7 @@ void Motor::HBridge::forward()
 {
   digitalWrite(this->INPUT1, HIGH);
   digitalWrite(this->INPUT2, LOW);
-  this->state = FORWARD;
+  state = FORWARD;
 }
 
 
@@ -31,21 +31,26 @@ void Motor::HBridge::backward()
 {
   digitalWrite(this->INPUT1, LOW);
   digitalWrite(this->INPUT2, HIGH);
-  this->state = BACKWARD;
+  state = BACKWARD;
 }
 
 void Motor::HBridge::stop()
 {
   digitalWrite(this->INPUT1, HIGH);
   digitalWrite(this->INPUT2, HIGH);
-  this->state = STOP;
+  state = STOP;
 }
 
 void Motor::HBridge::off()
 {
   digitalWrite(this->INPUT1, LOW);
   digitalWrite(this->INPUT2, LOW);
-  this->state = COAST;
+  state = COAST;
+}
+
+Motor::Direction Motor::HBridge::getState()
+{
+  return state;
 }
 
 void Motor::HBridgePWM::set(Direction direction, uint8_t pwm)
@@ -54,80 +59,84 @@ void Motor::HBridgePWM::set(Direction direction, uint8_t pwm)
   switch (direction) 
   {
     case FORWARD:
-      this->forward();
+      forward();
       break;
     case BACKWARD:
-      this->backward();
+      backward();
       break;
     case COAST:
-      this->off();
+      off();
       break;
     case STOP:
-      this->stop();
+      stop();
       break;
   }  
 
-  this->setSpeed(pwm);
+  setSpeed(pwm);
 }
 
 void Motor::HBridgePWM::setSpeed(uint8_t pwm)
 {
   if (pwm > MAX_PWM_VALUE)
   {
+    DEBUG_PRINTLN_ERROR("PWM value exceeds maximum, clamping to MAX_PWM_VALUE");
     pwm = MAX_PWM_VALUE;
   }
-  else if (pwm < MIN_PWM_VALUE)
+
+  if (pwm < MIN_PWM_VALUE)
   {
+    DEBUG_PRINTLN_WARN("PWM value below minimum, clamping to MIN_PWM_VALUE");
     pwm = MIN_PWM_VALUE;
   }
-  
+
   analogWrite(this->PWM_PIN, pwm);
-  this->pwmLevel = pwm;
+  pwmLevel = pwm;
 }
 
 void Motor::HBridgePWM::stop()
 {
   HBridge::stop();
-  this->setSpeed(MAX_PWM_VALUE);
+  setSpeed(MAX_PWM_VALUE);
 }
 
 void Motor::HBridgePWM::off()
 {
   HBridge::off();
-  this->setSpeed(MIN_PWM_VALUE);
+  setSpeed(MIN_PWM_VALUE);
 }
 
-Motor::Direction Motor::HBridgePWM::getState()
-{
-  return this->state;
-}
 
 void Motor::HBridgePWMEnc::read()
 {
-  int32_t value = this->encoder->read();
-  this->rpm = value;
+  uint32_t currentTime = millis();
+  uint32_t elapsedTime = currentTime - lastTime;
+  if (elapsedTime >= UPDATE_INTERVAL and elapsedTime != 0)
+  {
+    int32_t pulses = this->encoder.readAndReset();
+    rpm = (pulses / PULSES_PER_REVOLUTION) * (MINUTE_MS / elapsedTime);
+  }
 }
 
 void Motor::HBridgePWMEnc::set(Motor::Direction direction, uint8_t speed)
 {
-  Motor::HBridgePWM::set(direction, speed);
-  Motor::HBridgePWMEnc::read();
+  HBridgePWM::set(direction, speed);
+  read();
 }
 
 void Motor::HBridgePWMEnc::setSpeed(uint8_t speed)
 {
-  Motor::HBridgePWM::setSpeed(speed);
-  Motor::HBridgePWMEnc::read();
+  HBridgePWM::setSpeed(speed);
+  read();
 }
 
 void Motor::HBridgePWMEnc::off()
 {
-  Motor::HBridgePWM::off();
-  Motor::HBridgePWMEnc::read();
+  HBridgePWM::off();
+  read();
 }
 
 void Motor::HBridgePWMEnc::stop()
 {
-  Motor::HBridgePWM::off();
-  this->rpm = 0;
+  HBridgePWM::stop();
+  rpm = 0;
 }

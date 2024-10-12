@@ -32,7 +32,17 @@
 // #define DEBUG_INFO
 
 namespace Data
-{ 
+{
+  static constexpr uint8_t RUDDER_INDEX = 0;
+  static constexpr uint8_t DIVE_PLANE_INDEX = 1;
+  static constexpr uint8_t THROTTLE_INDEX = 2;
+  static constexpr uint8_t SWA_INDEX = 4; 
+  static constexpr uint8_t SWB_INDEX = 5; 
+  static constexpr uint8_t SWC_INDEX = 6; 
+  static constexpr uint8_t SWD_INDEX = 7; 
+  static constexpr uint8_t VRA_INDEX = 9; 
+  static constexpr uint8_t VRB_INDEX = 10
+  ; 
   /* Transformed controller inpus */
   class Input
   {
@@ -75,7 +85,7 @@ namespace Data
 
       private:
         /* Number of channels to read from reciever */
-        const static uint8_t NUM_CHANNELS = 10;
+        static constexpr uint8_t NUM_CHANNELS = 10;
 
         /* Raw sensor data */
         uint16_t channelData[NUM_CHANNELS];

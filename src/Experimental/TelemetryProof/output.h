@@ -35,19 +35,22 @@
 /* Holds classes for working with Rx/Tx */
 namespace Data
 {
+  static constexpr uint8_t PRESSURE = 0x41;
+  static constexpr uint8_t PRESSURE_SIZE = 4;
+  static constexpr uint8_t HEADING = 0x08;
+  static constexpr uint8_t SPEED = 0x7E;
+
+  static constexpr int32_t SEA_LEVEL = 101300;
+  static constexpr int16_t INITIAL_VOLTAGE = 960;
+  static constexpr int16_t INITIAL_HEADING = 90;
+  static constexpr int16_t INITIAL_SPEED = 0;
+
   class Output
   {
     public:
       /* Constructor */
       Output(uint32_t telemDelay)
-        : TELM_DELAY(telemDelay) 
-      {
-        this->rpm = 0;
-        this->pres = 101300;  // Sea level
-        this->voltage = 960;  // 9.6 volts
-        this->heading = 90;   // Due east?
-        this->speed = 0;
-      };
+        : TELM_DELAY(telemDelay), rpm(0), pres(SEA_LEVEL), voltage(INITIAL_VOLTAGE), heading(INITIAL_HEADING), speed(INITIAL_SPEED) {};
 
       /* Starts serial communication */
       Begin();
@@ -58,21 +61,6 @@ namespace Data
     private:
       /* Delay between telemetry updates in ms */
       const uint32_t TELM_DELAY;
-
-      /* Pressure sensor address */
-      const uint8_t PRESSURE = 0x41;
-
-      /* Size of pressure sensor data in bytes */
-      const uint8_t PRESSURE_SIZE = 4;
-
-      /* 
-      * Heading sensor address, this doesn't seem to be an actual
-      * FlySky address, it shows as '5' and is raw data
-      */
-      const uint8_t HEADING = 0x08;
-
-      /* Speed sensor address */
-      const uint8_t SPEED = 0x7E;
 
       /* Stores the last time we sent telemetry data in milliseconds */
       int32_t previousMillis = 0;

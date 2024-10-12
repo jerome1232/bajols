@@ -20,17 +20,8 @@
 #include "input.h"
 
 Data::Input::Input()
+  : throttle(0), rudder(0), divePlane(0), swA(SwitchPos::UP), swB(SwitchPos::UP), swC(ThreeWaySwitchPos::UP), swD(SwitchPos::UP), vrA(MIN_RAW_INPUT), vrB(MIN_RAW_INPUT)
 {
-  this->throttle = 0;
-  this->rudder = 0;
-  this->divePlane = 0;
-  this->swA = SwitchPos::UP;
-  this->swB = SwitchPos::UP;
-  this->swC = ThreeWaySwitchPos::UP;
-  this->swD = SwitchPos::UP;
-  this->vrA = MIN_RAW_INPUT;
-  this->vrB = MIN_RAW_INPUT;
-
   for (uint8_t i = 0; i < NUM_CHANNELS; i++)
   {
     channelData[i] = MIN_RAW_INPUT;
@@ -53,29 +44,29 @@ Data::Input::Read()
     DEBUG_PRINTLN_TRACE(channelData[i]);
   }
 
-  this->rudder = map(channelData[0], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
-  this->divePlane = map(channelData[1], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
-  this->throttle = map(channelData[2], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
+  rudder = map(channelData[RUDDER_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
+  divePlane = map(channelData[DIVE_PLANE_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
+  throttle = map(channelData[THROTTLE_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
 
-  switch (channelData[4])
+  switch (channelData[SWA_INDEX])
   {
     case MIN_RAW_INPUT:
-      this->swA = SwitchPos::UP;
+      swA = SwitchPos::UP;
       break;
     case MAX_RAW_INPUT:
-      this->swA = SwitchPos::DOWN;
+      swA = SwitchPos::DOWN;
       break;
   }
-  switch (channelData[6]) 
+  switch (channelData[SWC_INDEX]) 
   {
     case MIN_RAW_INPUT:
-      this->swC = ThreeWaySwitchPos::UP;
+      swC = ThreeWaySwitchPos::UP;
       break;
     case MID_RAW_INPUT:
-      this->swC = ThreeWaySwitchPos::MIDDLE;
+      swC = ThreeWaySwitchPos::MIDDLE;
       break;
     case MAX_RAW_INPUT:
-      this->swC = ThreeWaySwitchPos::DOWN;
+      swC = ThreeWaySwitchPos::DOWN;
   }
 
   DEBUG_PRINTLN_TRACE("Raw to Mapped data values");
@@ -83,27 +74,27 @@ Data::Input::Read()
   DEBUG_PRINTLN_TRACE("Object\t\t|\tRaw\t|\tMapped");
 
   DEBUG_PRINT_TRACE("Rudder\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[0]);
+  DEBUG_PRINT_TRACE(channelData[RUDDER_INDEX]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(this->rudder);
+  DEBUG_PRINTLN_TRACE(rudder);
 
   DEBUG_PRINT_TRACE("Dive Plane\t|\t");
-  DEBUG_PRINT_TRACE(channelData[1]);
+  DEBUG_PRINT_TRACE(channelData[DIVE_PLANE_INDEX]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(this->divePlane);
+  DEBUG_PRINTLN_TRACE(divePlane);
 
   DEBUG_PRINT_TRACE("Throttle\t|\t");
-  DEBUG_PRINT_TRACE(channelData[2]);
+  DEBUG_PRINT_TRACE(channelData[THROTTLE_INDEX]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(this->throttle);
+  DEBUG_PRINTLN_TRACE(throttle);
 
   DEBUG_PRINT_TRACE("swA\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[4]);
+  DEBUG_PRINT_TRACE(channelData[SWA_INDEX]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(int(this->swA));
+  DEBUG_PRINTLN_TRACE(int(swA));
 
   DEBUG_PRINT_TRACE("swC\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[6]);
+  DEBUG_PRINT_TRACE(channelData[SWC_INDEX]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(int(this->swC));
+  DEBUG_PRINTLN_TRACE(int(swC));
 };
