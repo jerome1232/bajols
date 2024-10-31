@@ -1,3 +1,4 @@
+#include "Arduino.h"
 /*
  * The TelemetryStreamTest application.
  *
@@ -42,63 +43,48 @@ namespace data
     DEBUG_PRINTLN_INFO(this->headingSensor);
   }
 
-  Data::Output::SetSensors(const Data::Input& input)
+  Data::Output::SetSensors(const Data::Input& input, int16_t _rpm)
   {
-    uint32_t currentMillis = millis();
-
-    if (currentMillis - this->previousMillis <= TELM_DELAY)
-    {
-      return;
-    }
-
-    this->previousMillis = currentMillis;
-
-    rpm = input.throttle * 10;
+    rpm = _rpm;
     switch (input.swC) 
     {
       case ThreeWaySwitchPos::UP:
-        this->pres += 1;
+        pres += 1;
         break;
       case ThreeWaySwitchPos::DOWN:
-        this->pres -= 1;
+        pres -= 1;
         break;
     }
 
-    if (count > 50 )
-    {
-      this->voltage--;
-      count = 0;
-    }
-    count++;
+    voltage = analogRead(A1);
 
-    this->heading++;
-    if (this->heading > 359)
+    if (++heading > 359)
     {
-      this->heading = 0;
+      heading = 0;
     }
 
-    this->speed = rpm / 3;
+    speed = _rpm / 3;
 
     DEBUG_PRINTLN_INFO("Streaming Telemetry");
-    this->ibus.setSensorMeasurement(this->rpmSensor, this->rpm);
-    this->ibus.setSensorMeasurement(this->presSensor, this->pres);
-    this->ibus.setSensorMeasurement(this->voltageSensor, this->voltage);
-    this->ibus.setSensorMeasurement(this->headingSensor, this->heading);
-    this->ibus.setSensorMeasurement(this->speedSensor, this->speed);
+    ibus.setSensorMeasurement(this->rpmSensor, this->rpm);
+    ibus.setSensorMeasurement(this->presSensor, this->pres);
+    ibus.setSensorMeasurement(this->voltageSensor, this->voltage);
+    ibus.setSensorMeasurement(this->headingSensor, this->heading);
+    ibus.setSensorMeasurement(this->speedSensor, this->speed);
 
     DEBUG_PRINT_INFO("Pressure :\t");
-    DEBUG_PRINTLN_INFO(this->pres);
+    DEBUG_PRINTLN_INFO(pres);
 
     DEBUG_PRINT_INFO("Heading :\t");
-    DEBUG_PRINTLN_INFO(this->heading);
+    DEBUG_PRINTLN_INFO(heading);
 
     DEBUG_PRINT_INFO("RPM :\t\t");
-    DEBUG_PRINTLN_INFO(this->rpm);
+    DEBUG_PRINTLN_INFO(rpm);
 
     DEBUG_PRINT_INFO("Speed :\t\t");
-    DEBUG_PRINTLN_INFO(this->speed);
+    DEBUG_PRINTLN_INFO(speed);
 
     DEBUG_PRINT_INFO("Volts :\t\t");
-    DEBUG_PRINTLN_INFO(this->voltage);
+    DEBUG_PRINTLN_INFO(voltage);
   };
 }

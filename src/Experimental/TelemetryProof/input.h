@@ -60,10 +60,10 @@ namespace Data
       uint8_t throttle;
 
       /* Rudder angle, between -15 and 15 */
-      int8_t rudder;
+      uint32_t rudder;
 
       /* Dive Plane angle, between -15 and 15 */
-      int8_t divePlane;
+      uint32_t divePlane;
 
       /* Throttle reverse switch */
       SwitchPos swA;

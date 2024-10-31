@@ -35,9 +35,11 @@
 // #define DEBUG_TRACE
 // #define DEBUG_WARN
 // #define DEBUG_ERROR
-#define DEBUG_INFO
+// #define DEBUG_INFO
 
 #include <IBusBM.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #include "motor.h"
 #include "input.h"
@@ -49,10 +51,22 @@
  * Version number
  */
 const String VERSION = "0.0.3";
+constexpr uint32_t TELEM_DELAY = 100;
+constexpr uint32_t READ_DELAY = 100;
+constexpr uint32_t BAUD_RATE = 115200;
 
-const int32_t TELEM_DELAY = 100;
+constexpr uint8_t WATER_SOLENOID_PIN = 27;
+constexpr uint8_t ENGINE_INPUT_1 = 22;
+constexpr uint8_t ENGINE_INPUT_2 = 23;
+constexpr uint8_t ENGINE_PWM = 11;
+constexpr uint8_t ENGINE_ENCODER_TRIGGER_1 = 2;
+constexpr uint8_t ENGINE_ENCODER_TRIGGER_2 = 3;
 
-const uint32_t BAUD_RATE = 115200;
+constexpr uint8_t WATER_PUMP_INPUT_1 = 24;
+constexpr uint8_t WATER_PUMP_INPUT_2 = 25;
+
+constexpr uint8_t RUDDER = 0;
+constexpr uint8_t DIVE_PLANE = 1;
 
 /* Rx data received from controller */
 Data::Input Rx;
@@ -61,33 +75,87 @@ Data::Input Rx;
 Data::Output Tx(TELEM_DELAY);
 
 /* The main screw */
-Motor::HBridgePWMEnc engine;
+Motor::HBridgePWMEnc engine(ENGINE_INPUT_1, ENGINE_INPUT_2, ENGINE_PWM, ENGINE_ENCODER_TRIGGER_1, ENGINE_ENCODER_TRIGGER_2);
 
+Motor::HBridge waterPump(WATER_PUMP_INPUT_1, WATER_PUMP_INPUT_2);
+
+/* Rudder for steering */
 Servo rudder;
 
+/* Diveplane for changing depth */
 Servo divePlane;
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+/* Stores previous values of rudder/diveplane so we aren't rewriting same value to servo over and over */
+int32_t oldRudder = Data::MID_POINT;
+int32_t oldDivePlane = Data::MID_POINT;
+
+/* Used for timing with no delay */
+uint32_t previousMillis = 0;
 
 void setup()
 {
-  Serial.begin(BAUD_RATE);
+  DEBUG_BEGIN(BAUD_RATE);
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(50);
+  pwm.writeMicroseconds(RUDDER, oldRudder);
+  pwm.writeMicroseconds(DIVE_PLANE, oldDivePlane);
   Rx.Begin();
   Tx.Begin();
-  rudder.attach(5);
-  divePlane.attach(6);
-  delay(TELEM_DELAY);
+
+  // Normally I'd write a small class to work water pump
+  // but it's literally an on off relay so meh
+  pinMode(WATER_SOLENOID_PIN, OUTPUT);
+  digitalWrite(WATER_SOLENOID_PIN, LOW);
+
+  DEBUG_PRINTLN_INFO("Starting");
 }
 
 void loop() {
-  Rx.Read();
-  Tx.SetSensors(Rx);
+  uint32_t current = millis();
+  bool takeAction = (current - previousMillis) > TELEM_DELAY;
 
-  DEBUG_PRINT_TRACE("Setting engine to ");
-  DEBUG_PRINT_TRACE(int(Rx.swA));
-  DEBUG_PRINT_TRACE(" with throttle at ");
-  DEBUG_PRINTLN_TRACE(Rx.throttle);
-  engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
-  DEBUG_PRINT_INFO("Rpm: ");
-  DEBUG_PRINTLN_INFO(engine.getRpm());
-  rudder.write(Rx.rudder);
-  divePlane.write(Rx.divePlane);
+  if (takeAction)
+  {
+    previousMillis = current;
+    Rx.Read();
+
+    engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+    uint16_t rpm = engine.getRpm();
+
+    if (Rx.rudder != oldRudder)
+    {
+      pwm.writeMicroseconds(RUDDER, Rx.rudder);
+      oldRudder = Rx.rudder;
+    }
+
+    if (Rx.divePlane != oldDivePlane)
+    {
+      pwm.writeMicroseconds(DIVE_PLANE, Rx.divePlane);
+      oldDivePlane = Rx.divePlane;
+    }
+
+    switch(Rx.swC)
+    {
+      case Data::ThreeWaySwitchPos::UP:
+        // Let water out, solenoid open, pump off
+        digitalWrite(WATER_SOLENOID_PIN, LOW);
+        waterPump.off();
+        break;
+      case Data::ThreeWaySwitchPos::MIDDLE:
+        // Pull water in, solenoid open, pump on
+        digitalWrite(WATER_SOLENOID_PIN, LOW);
+        waterPump.forward();
+        break;
+      case Data::ThreeWaySwitchPos::DOWN:
+        // Hold water, solenoid closed, pump off
+        digitalWrite(WATER_SOLENOID_PIN, HIGH);
+        waterPump.off();
+        break;
+    }
+
+    Tx.SetSensors(Rx, rpm);
+  }
 }

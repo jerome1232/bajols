@@ -27,10 +27,15 @@ namespace Data
   static constexpr uint16_t MIN_RAW_INPUT = 1000;
   static constexpr uint16_t MID_RAW_INPUT = 1500;
   static constexpr uint16_t MAX_RAW_INPUT = 2000;
-  static constexpr int8_t MIN_RUDDER_ANGLE = -15;
-  static constexpr int8_t MAX_RUDDER_ANGLE = 15;
-  static constexpr int8_t MIN_DIVE_PLANE_ANGLE = -15;
-  static constexpr int8_t MAX_DIVE_PLANE_ANGLE = 15;
+  // See https://www.pololu.com/file/0J728/HD-3001HB.pdf for where this data came from
+  static constexpr uint32_t MAX_MICROSECONDS = 2200;
+  static constexpr uint32_t MIN_MICROSECONDS = 800;
+  static constexpr uint32_t MID_POINT = (MIN_MICROSECONDS + MAX_MICROSECONDS) / 2;
+  static constexpr uint32_t DEGREES_OF_TRAVEL = 165;
+  static constexpr uint32_t MIN_RUDDER_ANGLE = (-15 / (double)DEGREES_OF_TRAVEL) * (MAX_MICROSECONDS - MIN_MICROSECONDS) + MID_POINT;
+  static constexpr uint32_t MAX_RUDDER_ANGLE = (15 / (double)DEGREES_OF_TRAVEL) * (MAX_MICROSECONDS - MIN_MICROSECONDS) + MID_POINT;
+  static constexpr uint32_t MIN_DIVE_PLANE_ANGLE = (-15 / (double)DEGREES_OF_TRAVEL) * (MAX_MICROSECONDS - MIN_MICROSECONDS) + MID_POINT;
+  static constexpr uint32_t MAX_DIVE_PLANE_ANGLE = (15 / (double)DEGREES_OF_TRAVEL) * (MAX_MICROSECONDS - MIN_MICROSECONDS) + MID_POINT;
 
   /* Possible switch positions */
   enum class SwitchPos

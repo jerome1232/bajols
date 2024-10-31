@@ -38,17 +38,17 @@ namespace Motor
 {
   // Constants
   static constexpr float MINUTE_MS = 60000.0f;
-  static constexpr uint8_t MAX_PWM_VALUE = 255;
+  static constexpr uint16_t MAX_PWM_VALUE = 255;
   static constexpr uint8_t MIN_PWM_VALUE = 0;
-  static constexpr uint32_t UPDATE_INTERVAL = 100;
-  static constexpr int16_t PULSES_PER_REVOLUTION = 48;
+  static constexpr uint32_t UPDATE_INTERVAL = 500;
+  static constexpr int16_t PULSES_PER_REVOLUTION = 8400;
 
   // pins
-  static constexpr uint8_t DEFAULT_INPUT_1_PIN = 2;
-  static constexpr uint8_t DEFAULT_INPUT_2_PIN = 3;
-  static constexpr uint8_t DEFAULT_PWM_PIN = 4;
+  static constexpr uint8_t DEFAULT_INPUT_1_PIN = 22;
+  static constexpr uint8_t DEFAULT_INPUT_2_PIN = 23;
+  static constexpr uint8_t DEFAULT_PWM_PIN = 2;
   static constexpr uint8_t DEFAULT_ENCODER_SIGNAL_A_PIN = 21;
-  static constexpr uint8_t DEFAULT_ENCODER_SIGNAL_B_PIN = 22;
+  static constexpr uint8_t DEFAULT_ENCODER_SIGNAL_B_PIN = 20;
 
   /*
    * Possible motor states
@@ -168,7 +168,7 @@ namespace Motor
       uint8_t PWM_PIN;
 
       /* Duty Cycle Motor is currently set to */
-      uint8_t pwmLevel;
+      uint16_t pwmLevel;
   };
 
   class HBridgePWMEnc : public HBridgePWM
@@ -182,7 +182,7 @@ namespace Motor
 
       int32_t getRpm()
       {
-        return this->rpm;
+        return rpm;
       }
 
       void set(Direction direction, uint8_t speed) override;

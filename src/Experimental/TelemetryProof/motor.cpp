@@ -1,3 +1,4 @@
+#include "HardwareSerial.h"
 /*
  * The TelemetryStreamTest application.
  *
@@ -110,10 +111,20 @@ void Motor::HBridgePWMEnc::read()
 {
   uint32_t currentTime = millis();
   uint32_t elapsedTime = currentTime - lastTime;
-  if (elapsedTime >= UPDATE_INTERVAL and elapsedTime != 0)
+  if (elapsedTime == 0)
+  {
+    return;
+  }
+
+  if (elapsedTime >= UPDATE_INTERVAL)
   {
     int32_t pulses = this->encoder.readAndReset();
-    rpm = (pulses / PULSES_PER_REVOLUTION) * (MINUTE_MS / elapsedTime);
+    if (pulses < 0)
+    {
+      pulses = pulses * -1;
+    }
+    rpm = (pulses / double(PULSES_PER_REVOLUTION)) * (MINUTE_MS / elapsedTime);
+    lastTime = currentTime;
   }
 }
 

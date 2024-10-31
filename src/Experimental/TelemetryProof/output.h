@@ -56,14 +56,14 @@ namespace Data
       Begin();
 
       /* updates sensor values */
-      SetSensors(const Data::Input& input);
+      SetSensors(const Data::Input& input, int16_t rpm);
 
     private:
       /* Delay between telemetry updates in ms */
       const uint32_t TELM_DELAY;
 
       /* Stores the last time we sent telemetry data in milliseconds */
-      int32_t previousMillis = 0;
+      uint32_t previousMillis = 0;
 
       int16_t count = 0;
 

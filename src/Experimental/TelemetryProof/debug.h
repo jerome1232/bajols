@@ -48,9 +48,11 @@
 #endif
 
 #if defined(DEBUG_INFO)
+  #define DEBUG_BEGIN(x)          Serial.begin(x)
   #define DEBUG_PRINT_INFO(x)     Serial.print(x)
   #define DEBUG_PRINTLN_INFO(x)   Serial.println(x)
 #else
+  # define DEBUG_BEGIN(x)
   #define DEBUG_PRINT_INFO(x)
   #define DEBUG_PRINTLN_INFO(x)
 #endif
