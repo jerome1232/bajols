@@ -30,7 +30,7 @@ Data::Input::Input()
 
 Data::Input::Begin()
 {
-  ibus.begin(Serial1);
+  ibus.begin(Serial2);
 }
 
 Data::Input::Read()

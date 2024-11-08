@@ -49,8 +49,8 @@ namespace Data
   {
     public:
       /* Constructor */
-      Output(uint32_t telemDelay)
-        : TELM_DELAY(telemDelay), rpm(0), pres(SEA_LEVEL), voltage(INITIAL_VOLTAGE), heading(INITIAL_HEADING), speed(INITIAL_SPEED) {};
+      Output()
+        : rpm(0), pres(SEA_LEVEL), voltage(INITIAL_VOLTAGE), heading(INITIAL_HEADING), speed(INITIAL_SPEED) {};
 
       /* Starts serial communication */
       Begin();
@@ -59,14 +59,6 @@ namespace Data
       SetSensors(const Data::Input& input, int16_t rpm);
 
     private:
-      /* Delay between telemetry updates in ms */
-      const uint32_t TELM_DELAY;
-
-      /* Stores the last time we sent telemetry data in milliseconds */
-      uint32_t previousMillis = 0;
-
-      int16_t count = 0;
-
       /* Fake sensor data */
       int32_t pres;
       int16_t rpm;

@@ -24,7 +24,7 @@ namespace data
 {
   Data::Output::Begin()
   {
-    this->ibus.begin(Serial2);
+    this->ibus.begin(Serial3);
     this->speedSensor = ibus.addSensor(SPEED);
     this->rpmSensor = ibus.addSensor(IBUSS_RPM);
     this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);

@@ -26,7 +26,6 @@
  * Sketch -> Include Library -> Add .zip library
  */
 
-
 /*
  * Uncomment one of these to enable debug logging to
  * the serial monitor. INFO is the least verbose to
@@ -51,7 +50,6 @@
  * Version number
  */
 const String VERSION = "0.0.3";
-constexpr uint32_t TELEM_DELAY = 100;
 constexpr uint32_t READ_DELAY = 100;
 constexpr uint32_t BAUD_RATE = 115200;
 
@@ -72,7 +70,7 @@ constexpr uint8_t DIVE_PLANE = 1;
 Data::Input Rx;
 
 /* Tx data we are sending to controller */
-Data::Output Tx(TELEM_DELAY);
+Data::Output Tx;
 
 /* The main screw */
 Motor::HBridgePWMEnc engine(ENGINE_INPUT_1, ENGINE_INPUT_2, ENGINE_PWM, ENGINE_ENCODER_TRIGGER_1, ENGINE_ENCODER_TRIGGER_2);
@@ -90,13 +88,19 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 /* Stores previous values of rudder/diveplane so we aren't rewriting same value to servo over and over */
 int32_t oldRudder = Data::MID_POINT;
 int32_t oldDivePlane = Data::MID_POINT;
+Data::ThreeWaySwitchPos oldswC = Data::ThreeWaySwitchPos::UP;
+int32_t oldThrottle = Data::MIN_RAW_INPUT;
+Data::SwitchPos oldswA = Data::SwitchPos::UP;
 
 /* Used for timing with no delay */
 uint32_t previousMillis = 0;
 
+uint8_t nextLedState = LOW;
+
 void setup()
 {
   DEBUG_BEGIN(BAUD_RATE);
+  // Serial.begin(BAUD_RATE);
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(50);
@@ -110,19 +114,40 @@ void setup()
   pinMode(WATER_SOLENOID_PIN, OUTPUT);
   digitalWrite(WATER_SOLENOID_PIN, LOW);
 
+  pinMode(8, OUTPUT);
+  digitalWrite(8, LOW);
+
   DEBUG_PRINTLN_INFO("Starting");
+  uint32_t current = millis();
+  while (current < 5000)
+  {
+    digitalWrite(8, HIGH);
+    delay(100);
+    digitalWrite(8, LOW);
+    delay(50);
+    current = millis();
+  }
 }
 
 void loop() {
+
   uint32_t current = millis();
-  bool takeAction = (current - previousMillis) > TELEM_DELAY;
+  bool takeAction = (current - previousMillis) > READ_DELAY;
 
   if (takeAction)
   {
+    digitalWrite(8, nextLedState);
+    nextLedState = nextLedState == LOW ? HIGH : LOW;
     previousMillis = current;
     Rx.Read();
 
-    engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+    if (oldThrottle != Rx.throttle || oldswA != Rx.swA)
+    {
+      oldThrottle = Rx.throttle;
+      oldswA = Rx.swA;
+      engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+    }
+
     uint16_t rpm = engine.getRpm();
 
     if (Rx.rudder != oldRudder)
@@ -137,25 +162,32 @@ void loop() {
       oldDivePlane = Rx.divePlane;
     }
 
-    switch(Rx.swC)
+    if (Rx.swC != oldswC)
     {
-      case Data::ThreeWaySwitchPos::UP:
-        // Let water out, solenoid open, pump off
-        digitalWrite(WATER_SOLENOID_PIN, LOW);
-        waterPump.off();
-        break;
-      case Data::ThreeWaySwitchPos::MIDDLE:
-        // Pull water in, solenoid open, pump on
-        digitalWrite(WATER_SOLENOID_PIN, LOW);
-        waterPump.forward();
-        break;
-      case Data::ThreeWaySwitchPos::DOWN:
-        // Hold water, solenoid closed, pump off
-        digitalWrite(WATER_SOLENOID_PIN, HIGH);
-        waterPump.off();
-        break;
+      oldswC = Rx.swC;
+      switch(Rx.swC)
+      {
+        case Data::ThreeWaySwitchPos::UP:
+          // Let water out, solenoid open, pump off
+          digitalWrite(WATER_SOLENOID_PIN, LOW);
+          waterPump.off();
+          break;
+        case Data::ThreeWaySwitchPos::MIDDLE:
+          // Pull water in, solenoid open, pump on
+          digitalWrite(WATER_SOLENOID_PIN, LOW);
+          waterPump.forward();
+          break;
+        case Data::ThreeWaySwitchPos::DOWN:
+          // Hold water, solenoid closed, pump off
+          digitalWrite(WATER_SOLENOID_PIN, HIGH);
+          waterPump.off();
+          break;
+      }
+
     }
 
+
     Tx.SetSensors(Rx, rpm);
+    digitalWrite(8, LOW);
   }
 }

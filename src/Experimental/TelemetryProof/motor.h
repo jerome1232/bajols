@@ -40,7 +40,7 @@ namespace Motor
   static constexpr float MINUTE_MS = 60000.0f;
   static constexpr uint16_t MAX_PWM_VALUE = 255;
   static constexpr uint8_t MIN_PWM_VALUE = 0;
-  static constexpr uint32_t UPDATE_INTERVAL = 500;
+  static constexpr uint32_t UPDATE_INTERVAL = 50;
   static constexpr int16_t PULSES_PER_REVOLUTION = 8400;
 
   // pins
