@@ -25,297 +25,169 @@
  * Add to sketch in Arduino ide
  * Sketch -> Include Library -> Add .zip library
  */
+
+/*
+ * Uncomment one of these to enable debug logging to
+ * the serial monitor. INFO is the least verbose to
+ * TRACE should positivly overwhelm you with logging.
+ */
+// #define DEBUG_TRACE
+// #define DEBUG_WARN
+// #define DEBUG_ERROR
+// #define DEBUG_INFO
+
 #include <IBusBM.h>
-#include <math.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+#include "motor.h"
+#include "input.h"
+#include "output.h"
+#include "debug.h"
+#include "Servo.h"
 
 /*
  * Version number
  */
 const String VERSION = "0.0.3";
+constexpr uint32_t READ_DELAY = 100;
+constexpr uint32_t BAUD_RATE = 115200;
 
-/* 
- * Constant used to convert
- * signed 32 bit GPS integers to a 
- * decimial notation.
- */
-const double SCALE_INT_GPS_TO_DEC = 1E-7;
+constexpr uint8_t WATER_SOLENOID_PIN = 27;
+constexpr uint8_t ENGINE_INPUT_1 = 22;
+constexpr uint8_t ENGINE_INPUT_2 = 23;
+constexpr uint8_t ENGINE_PWM = 11;
+constexpr uint8_t ENGINE_ENCODER_TRIGGER_1 = 2;
+constexpr uint8_t ENGINE_ENCODER_TRIGGER_2 = 3;
 
-/* 
- * Constant used to convert
- * decimal GPS data to an
- * integer notation.
- */
-const uint_least32_t SCALE_DEC_GPS_TO_INT = 1E7;
+constexpr uint8_t WATER_PUMP_INPUT_1 = 24;
+constexpr uint8_t WATER_PUMP_INPUT_2 = 25;
 
-/*
- * Constant used to scale meters to centimeters
- */
-const uint_least8_t SCALE_METERS_TO_CENTIMETERS = 100;
+constexpr uint8_t RUDDER = 0;
+constexpr uint8_t DIVE_PLANE = 1;
 
-/* 
- * Extended GPS Sensor addresses 
- * I have no idea if these ones will work
- * Data type noted inline is the data type of the
- * data sent to sensor
- */
+/* Rx data received from controller */
+Data::Input Rx;
 
-/* Latitude telmetry address Data is type int_least32_t scaled by 1E-7*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LAT = 0x80;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LAT_SIZE = 4; // This sensor uses 4 bytes
+/* Tx data we are sending to controller */
+Data::Output Tx;
 
-/* Longitude telmetry address Data is type int_least32_t scaled by 1E-7*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LON = 0x81;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_LON_SIZE = 4; // This sensor uses 4 bytes
+/* The main screw */
+Motor::HBridgePWMEnc engine(ENGINE_INPUT_1, ENGINE_INPUT_2, ENGINE_PWM, ENGINE_ENCODER_TRIGGER_1, ENGINE_ENCODER_TRIGGER_2);
 
-/* Distance from origin telmetry address Data is type uint_least16_t Unit is centimeters*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_DIST = 0x14;
+Motor::HBridge waterPump(WATER_PUMP_INPUT_1, WATER_PUMP_INPUT_2);
 
-/* Altitude telemetry address Data is type int_least32_t Unit is meters*/
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_ALT = 0x82;
-const uint_least8_t IBUS_SENSOR_TYPE_GPS_ALT_SIZE = 4; // This sensor uses 4 bytes
+/* Rudder for steering */
+Servo rudder;
 
-/*
- * Inteligent Bus used to communicate with a
- * FlySky reciever
- */
-IBusBM IBus;
+/* Diveplane for changing depth */
+Servo divePlane;
 
-/* Amount of time to delay between sensor updates */
-const uint_least16_t WAIT_TIME = 5000;
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-/* Serial line baudrate */
-const uint_least32_t BAUDRATE = 115200;
+/* Stores previous values of rudder/diveplane so we aren't rewriting same value to servo over and over */
+int32_t oldRudder = Data::MID_POINT;
+int32_t oldDivePlane = Data::MID_POINT;
+Data::ThreeWaySwitchPos oldswC = Data::ThreeWaySwitchPos::UP;
+int32_t oldThrottle = Data::MIN_RAW_INPUT;
+Data::SwitchPos oldswA = Data::SwitchPos::UP;
 
-/* Home latitude */
-const int_least32_t ORIGIN_LAT = 418437575;
+/* Used for timing with no delay */
+uint32_t previousMillis = 0;
 
-/* Home longitude */
-const int_least32_t ORIGIN_LON = -1118449990;
+uint8_t nextLedState = LOW;
 
-/* Fake latitude gps data */
-int_least32_t lat = ORIGIN_LAT;
+void setup()
+{
+  DEBUG_BEGIN(BAUD_RATE);
+  // Serial.begin(BAUD_RATE);
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(50);
+  pwm.writeMicroseconds(RUDDER, oldRudder);
+  pwm.writeMicroseconds(DIVE_PLANE, oldDivePlane);
+  Rx.Begin();
+  Tx.Begin();
 
-/* Fake longitude gps data */
-int_least32_t lon = ORIGIN_LON;
+  // Normally I'd write a small class to work water pump
+  // but it's literally an on off relay so meh
+  pinMode(WATER_SOLENOID_PIN, OUTPUT);
+  digitalWrite(WATER_SOLENOID_PIN, LOW);
 
-/* Fake alitiude gps data in meters */
-int_least32_t alt = 440;
+  pinMode(8, OUTPUT);
+  digitalWrite(8, LOW);
 
-/* Fake rpm sensor data */
-uint_least16_t rpm = 0;
-
-/* Size of array holding channel data */
-const int_least8_t CHANNEL_DATA_SIZE = 6;
-
-/* Holds the lowest values seen for each channel */
-int_least16_t minChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
-
-/* Holds the highest values seen for each channel */
-int_least16_t maxChannelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(BAUDRATE);
-
-  // I believe on a Mega this will need to be Serial1 UPDATE_ME_IF_COMPILE_FAILS
-  IBus.begin(Serial1);
-
-  Serial.println("~");
-  Serial.print("Initializing TelemetryStreamTest v");
-  Serial.println(VERSION);
-  Serial.println("~");
-  Serial.println();
-
-  Serial.println("Adding base sensors");
-  IBus.addSensor(IBUSS_RPM);
-  Serial.println("Base sensors added");
-
-  Serial.println("Adding extended gps sensors");
-  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_LAT, IBUS_SENSOR_TYPE_GPS_LAT_SIZE);
-  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_LON, IBUS_SENSOR_TYPE_GPS_LON_SIZE);
-  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_ALT, IBUS_SENSOR_TYPE_GPS_ALT_SIZE);
-  IBus.addSensor(IBUS_SENSOR_TYPE_GPS_DIST);
-  Serial.println("Extended gps sensors added");
-
-  Serial.println("Sensors initialized");
-  Serial.print("Waiting ");
-  Serial.print(WAIT_TIME * 2);
-  Serial.println(" milliseconds");
-  Serial.println("I think you should be able to find and add sensors to screen on controller now?");
-  delay(WAIT_TIME * 2);
-
-  Serial.print("Streaming telemetry and reading remote every");
-  Serial.print(WAIT_TIME);
-  Serial.println(" milliseconds");
-}
-
-void loop() {
-  Serial.println("Computing GPS distance from Origin");
-  Serial.println("##################################");
-
-  // I chose to scale this to centimeters for a little more precision
-  const int16_t distance = computeAproxDistanceCentimeters(ORIGIN_LAT, ORIGIN_LON, lat, lon);
-
-  printSensorData(distance);
-
-  Serial.println("Setting RPM base sensor");
-  setBaseSensors();
-  Serial.println("RPM base sensor set");
-
-  /* 
-   * I'm worried these extended sensors won't work
-   * with flysky remote
-   */
-  Serial.println("Setting GPS extended sensors");
-  setGpsSensors(distance);
-  Serial.println("GPS extended sensors set");
-
-  incrementBaseSensors();
-  incrementGpsSensors();
-
-  Serial.print("Wait ");
-  Serial.print(WAIT_TIME);
-  Serial.println(" ms");
-  delay(WAIT_TIME);
-
-  channelReader();
-
-  Serial.print("Wait ");
-  Serial.print(WAIT_TIME);
-  Serial.println(" ms");
-  delay(WAIT_TIME);
-}
-
-/*
- * Read data from iBus channels, record highest and lowest values
- */
-void channelReader() {
-  Serial.println("Reading data from all 6 channels");
-  int_least16_t channelData[CHANNEL_DATA_SIZE] = {0, 0, 0, 0, 0, 0};
-  for (int_least8_t i = 0; i < CHANNEL_DATA_SIZE; i++) {
-    channelData[i] = IBus.readChannel(i);
-
-    if (channelData[i] < minChannelData[i])
-    {
-      minChannelData[i] = channelData[i];
-    }
-
-    if (channelData[i] > maxChannelData[i])
-    {
-      maxChannelData[i] = maxChannelData[i];
-    }
-
-    Serial.print("Channel ");
-    Serial.print(i);
-    Serial.print(" = ");
-    Serial.print(channelData[i]);
-    Serial.print(" MAX: ");
-    Serial.print(maxChannelData[i]);
-    Serial.print(" MIN: ");
-    Serial.println(minChannelData[i]);
+  DEBUG_PRINTLN_INFO("Starting");
+  uint32_t current = millis();
+  while (current < 5000)
+  {
+    digitalWrite(8, HIGH);
+    delay(100);
+    digitalWrite(8, LOW);
+    delay(50);
+    current = millis();
   }
 }
 
-/*
- * Send data to reciver for RPMs
- */
-void setBaseSensors() {
-  IBus.setSensorMeasurement(IBUSS_RPM, rpm);
-}
+void loop() {
 
-/*
- * Increment fake rpm sensor data
- */
-void incrementBaseSensors() {
-  rpm++;
-}
+  uint32_t current = millis();
+  bool takeAction = (current - previousMillis) > READ_DELAY;
 
-/*
- * Send data to reciever for GPS
- */
-void setGpsSensors(const int16_t dist) {
-  IBus.setSensorMeasurement(IBUS_SENSOR_TYPE_GPS_LAT, lat);
-  IBus.setSensorMeasurement(IBUS_SENSOR_TYPE_GPS_LON, lon);
-  IBus.setSensorMeasurement(IBUS_SENSOR_TYPE_GPS_ALT, alt);
-  IBus.setSensorMeasurement(IBUS_SENSOR_TYPE_GPS_DIST, dist);
-}
+  if (takeAction)
+  {
+    digitalWrite(8, nextLedState);
+    nextLedState = nextLedState == LOW ? HIGH : LOW;
+    previousMillis = current;
+    Rx.Read();
 
-/*
- * Change GPS data
- */
-void incrementGpsSensors() {
-  lat += 11;
-  lon += 5;
-  alt += 52;
-}
+    if (oldThrottle != Rx.throttle || oldswA != Rx.swA)
+    {
+      oldThrottle = Rx.throttle;
+      oldswA = Rx.swA;
+      engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+    }
 
-/*
- * Compute aprox distance from origin
- *
- * Note:
- * I should figure out a way to do all of this math with ints but it seems fast enough for now
- * This might be functionality done automatically by  a GPS module anyways.
- */
-int16_t computeAproxDistanceCentimeters(int_least32_t lat1, int_least32_t lon1, int_least32_t lat2, int_least32_t lon2) {
-  // Adjust 32 bit integers to a decimal representation
-  const double fixedLat1 = double(lat1) * SCALE_INT_GPS_TO_DEC;
-  const double fixedLon1 = double(lon1) * SCALE_INT_GPS_TO_DEC;
-  const double fixedLat2 = double(lat2) * SCALE_INT_GPS_TO_DEC;
-  const double fixedLon2 = double(lon2) * SCALE_INT_GPS_TO_DEC;
+    uint16_t rpm = engine.getRpm();
 
-  Serial.println("ORIGIN");
-  Serial.print("Lat:Long=");
-  Serial.print(fixedLat1, 7);
-  Serial.print(",");
-  Serial.println(fixedLon1, 7);
+    if (Rx.rudder != oldRudder)
+    {
+      pwm.writeMicroseconds(RUDDER, Rx.rudder);
+      oldRudder = Rx.rudder;
+    }
 
-  Serial.println("NEW");
-  Serial.print("Lat:Long=");
-  Serial.print(fixedLat2, 7);
-  Serial.print(",");
-  Serial.println(fixedLon2, 7);
+    if (Rx.divePlane != oldDivePlane)
+    {
+      pwm.writeMicroseconds(DIVE_PLANE, Rx.divePlane);
+      oldDivePlane = Rx.divePlane;
+    }
 
-  // Formula for aprox distance: https://en.wikipedia.org/wiki/Geographic_coordinate_system#Latitude_and_longitude
-  const double avgLat = (fixedLat1 + fixedLat2) / 2.0;
-  const double mPerDegreeLat = abs(111132.92 - 559.82 * cos(2.0 * avgLat) + 1.175 * cos(4.0 * avgLat) - 0.0023 * cos(6.0 * avgLat));
-  const double mPerDegreeLon = abs(111412.84 * cos(avgLat) - 93.5 * cos(3.0 * avgLat) + 0.118 * cos(5.0 * avgLat));
+    if (Rx.swC != oldswC)
+    {
+      oldswC = Rx.swC;
+      switch(Rx.swC)
+      {
+        case Data::ThreeWaySwitchPos::UP:
+          // Let water out, solenoid open, pump off
+          digitalWrite(WATER_SOLENOID_PIN, LOW);
+          waterPump.off();
+          break;
+        case Data::ThreeWaySwitchPos::MIDDLE:
+          // Pull water in, solenoid open, pump on
+          digitalWrite(WATER_SOLENOID_PIN, LOW);
+          waterPump.forward();
+          break;
+        case Data::ThreeWaySwitchPos::DOWN:
+          // Hold water, solenoid closed, pump off
+          digitalWrite(WATER_SOLENOID_PIN, HIGH);
+          waterPump.off();
+          break;
+      }
 
-  // Compute change in Lat/Lon
-  double deltaLat = abs(fixedLat1 - fixedLat2);
-  double deltaLon = abs(fixedLon1 - fixedLon2);
+    }
 
-  Serial.print("Change in Lat:");
-  Serial.println(deltaLat, 7);
-  Serial.print("Change in Lon:");
-  Serial.println(deltaLon, 7);
 
-  Serial.print("Meters per Degree Lat,Lon:");
-  Serial.print(mPerDegreeLat, 7);
-  Serial.print(",");
-  Serial.println(mPerDegreeLon, 7);
-
-  // Compute distance between points
-  return int16_t(sqrt(pow(deltaLat * mPerDegreeLat, 2) + pow(deltaLon * mPerDegreeLon, 2)) * SCALE_METERS_TO_CENTIMETERS);
-}
-
-/*
- * Print all sensor data to serial monitor
- */
-void printSensorData(const uint_least16_t dist) {
-  Serial.print("Rpm=");
-  Serial.println(rpm);
-
-  Serial.print("lat=");
-  Serial.println(double(lat) * SCALE_INT_GPS_TO_DEC, 7);
-
-  Serial.print("lon=");
-  Serial.println(double(lon) * SCALE_INT_GPS_TO_DEC, 7);
-
-  Serial.print("alt=");
-  Serial.print(double(alt) / 100.0);
-  Serial.println(" m");
-
-  Serial.print("Distance=");
-  Serial.print(dist);
-  Serial.println(" cm");
+    Tx.SetSensors(Rx, rpm);
+    digitalWrite(8, LOW);
+  }
 }
