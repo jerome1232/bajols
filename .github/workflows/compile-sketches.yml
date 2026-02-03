@@ -47,6 +47,7 @@ jobs:
             - source-url: https://github.com/arduino-libraries/Servo.git
             - source-url: https://github.com/PaulStoffregen/Encoder.git
             - source-url: https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library.git
+            - source-url: https://github.com/adafruit/Adafruit_BusIO.git
           sketch-paths: |
             - src
           enable-deltas-report: true
