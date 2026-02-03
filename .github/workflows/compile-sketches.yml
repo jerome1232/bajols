@@ -43,9 +43,17 @@ jobs:
           fqbn: ${{ matrix.board.fqbn }}
           platforms: ${{ matrix.board.platforms }}
           libraries: |
-            - source-url: https://github.com/bmellink/IBusBM/archive/refs/tags/v1.1.4.zip
-            - source-url: https://github.com/arduino-libraries/Servo.git
-            - source-url: https://github.com/PaulStoffregen/Encoder.git
+            - source-url: https://github.com/bmellink/IBusBM.git
+              version: v1.1.4
+            - name: Servo
+              version: 1.3.0
+            - name: Encoder
+              version: 1.4.4
+            - name: Adafruit BusIO
+              version: 1.17.4
+            - name: Adafruit PWM Servo Driver Library
+              version: 3.0.2
+
           sketch-paths: |
             - src
           enable-deltas-report: true

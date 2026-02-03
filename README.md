@@ -17,12 +17,17 @@ It constantly changes heading (shown as '5' sensor on flysky remote)
 Currently heading is 0..360 degrees.
 
 ## Compile
-Libraries needed to compile this sketch
+Libraries needed to compile this sketch - If not included in repo it's installable from arudino IDE.
 
-|Library|Location in Repo|Weblink|Version|
+|Library|Location in Repo|Web link|Version|
 |-------|----------------|-------|-------|
 |IBusBM|/src/Libraries/IBusBM-1.1.4.zip|[bmellink/IBusBM](https://github.com/bmellink/IBusBM)|1.1.4
+|Servo|-|[Servo](https://github.com/arduino-libraries/Servo.git)|1.3.0
+|Encoder|-|[Encoder](https://github.com/PaulStoffregen/Encoder)|1.4.4
+|Adafruit_BusIO|-|[Adafruit_BusIO](https://github.com/adafruit/Adafruit_BusIO)|1.17.4
+|Adafruit_PWM-Servo-Driver|-|[Servo-Driver](https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library)|3.0.2
 
+Main .ino file is located at /src/Experimental/TelemetryProof/TelemetryProof.ino
 
 ## Wiring
 To wire reciever see this diagram
