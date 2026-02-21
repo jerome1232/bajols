@@ -27,14 +27,8 @@
  */
 
 /*
- * Uncomment one of these to enable debug logging to
- * the serial monitor. INFO is the least verbose to
- * TRACE should positivly overwhelm you with logging.
+ * Debug logging is now configured in debug.h
  */
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
 
 #include <IBusBM.h>
 #include <Wire.h>

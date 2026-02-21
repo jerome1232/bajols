@@ -20,9 +20,9 @@
 
 #include "output.h"
 
-namespace data
+namespace Data
 {
-  Data::Output::Begin()
+  void Data::Output::Begin()
   {
     this->ibus.begin(Serial3);
     this->speedSensor = ibus.addSensor(SPEED);
@@ -43,7 +43,7 @@ namespace data
     DEBUG_PRINTLN_INFO(this->headingSensor);
   }
 
-  Data::Output::SetSensors(const Data::Input& input, int16_t _rpm)
+  void Data::Output::SetSensors(const Data::Input& input, int16_t _rpm)
   {
     rpm = _rpm;
     switch (input.swC) 

@@ -26,10 +26,7 @@
 #include "IBusBM.h"
 #include "motor.h"
 
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
+// Debug configured in debug.h
 
 namespace Data
 {
@@ -51,10 +48,10 @@ namespace Data
       Input();
 
       /* Starts serial communication */
-      Begin();
+      void Begin();
 
       /* Read data */
-      Read();
+      void Read();
 
       /* Throttle value, between 0 and 255 */
       uint8_t throttle;

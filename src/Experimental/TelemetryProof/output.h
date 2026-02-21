@@ -27,11 +27,6 @@
 #include "debug.h"
 #include "input.h"
 
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
-
 /* Holds classes for working with Rx/Tx */
 namespace Data
 {
@@ -53,10 +48,10 @@ namespace Data
         : rpm(0), pres(SEA_LEVEL), voltage(INITIAL_VOLTAGE), heading(INITIAL_HEADING), speed(INITIAL_SPEED) {};
 
       /* Starts serial communication */
-      Begin();
+      void Begin();
 
       /* updates sensor values */
-      SetSensors(const Data::Input& input, int16_t rpm);
+      void SetSensors(const Data::Input& input, int16_t rpm);
 
     private:
       /* Fake sensor data */

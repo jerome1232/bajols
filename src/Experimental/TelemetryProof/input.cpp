@@ -28,12 +28,12 @@ Data::Input::Input()
   }
 };
 
-Data::Input::Begin()
+void Data::Input::Begin()
 {
   ibus.begin(Serial2);
 }
 
-Data::Input::Read()
+void Data::Input::Read()
 {
   for (uint8_t i = 0; i < NUM_CHANNELS; i++)
   {

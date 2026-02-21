@@ -20,41 +20,50 @@
 #ifndef DEBUG_h
 #define DEBUG_h
 
+/*
+ * Uncomment one of these to enable debug logging across the entire project.
+ * INFO is the least verbose; TRACE is the most verbose.
+ */
+#define DEBUG_TRACE
+// #define DEBUG_WARN
+// #define DEBUG_ERROR
+// #define DEBUG_INFO
+
 #if defined(DEBUG_TRACE)
-  #define DEBUG_PRINT_TRACE(x)    Serial.print(x)
-  #define DEBUG_PRINTLN_TRACE(x)  Serial.println(x)
+  #define DEBUG_PRINT_TRACE(x)    do { Serial.print(x); } while (0)
+  #define DEBUG_PRINTLN_TRACE(x)  do { Serial.println(x); } while (0)
   #define DEBUG_ERROR
 #else
-  #define DEBUG_PRINT_TRACE(x)
-  #define DEBUG_PRINTLN_TRACE(x)
+  #define DEBUG_PRINT_TRACE(x)    do {} while (0)
+  #define DEBUG_PRINTLN_TRACE(x)  do {} while (0)
 #endif
 
 #if defined(DEBUG_ERROR)
-  #define DEBUG_PRINT_ERROR(x)    Serial.print(x)
-  #define DEBUG_PRINTLN_ERROR(x)  Serial.println(x)
+  #define DEBUG_PRINT_ERROR(x)    do { Serial.print(x); } while (0)
+  #define DEBUG_PRINTLN_ERROR(x)  do { Serial.println(x); } while (0)
   #define DEBUG_WARN
 #else
-  #define DEBUG_PRINT_ERROR(x)
-  #define DEBUG_PRINTLN_ERROR(x)
+  #define DEBUG_PRINT_ERROR(x)    do {} while (0)
+  #define DEBUG_PRINTLN_ERROR(x)  do {} while (0)
 #endif
 
 #if defined(DEBUG_WARN)
-  #define DEBUG_PRINT_WARN(x)     Serial.print(x)
-  #define DEBUG_PRINTLN_WARN(x)   Serial.println(x)
+  #define DEBUG_PRINT_WARN(x)     do { Serial.print(x); } while (0)
+  #define DEBUG_PRINTLN_WARN(x)   do { Serial.println(x); } while (0)
   #define DEBUG_INFO
 #else
-  #define DEBUG_PRINT_WARN(x)
-  #define DEBUG_PRINTLN_WARN(x)
+  #define DEBUG_PRINT_WARN(x)     do {} while (0)
+  #define DEBUG_PRINTLN_WARN(x)   do {} while (0)
 #endif
 
 #if defined(DEBUG_INFO)
-  #define DEBUG_BEGIN(x)          Serial.begin(x)
-  #define DEBUG_PRINT_INFO(x)     Serial.print(x)
-  #define DEBUG_PRINTLN_INFO(x)   Serial.println(x)
+  #define DEBUG_BEGIN(x)          do { Serial.begin(x); } while (0)
+  #define DEBUG_PRINT_INFO(x)     do { Serial.print(x); } while (0)
+  #define DEBUG_PRINTLN_INFO(x)   do { Serial.println(x); } while (0)
 #else
-  #define DEBUG_BEGIN(x)
-  #define DEBUG_PRINT_INFO(x)
-  #define DEBUG_PRINTLN_INFO(x)
+  #define DEBUG_BEGIN(x)          do {} while (0)
+  #define DEBUG_PRINT_INFO(x)     do {} while (0)
+  #define DEBUG_PRINTLN_INFO(x)   do {} while (0)
 #endif
 
 #endif
