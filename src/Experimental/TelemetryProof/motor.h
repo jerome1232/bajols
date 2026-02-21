@@ -24,11 +24,6 @@
 #ifndef Motor_h
 #define Motor_h
 
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
-
 #include "Arduino.h"
 #include "Encoder.h"
 #include "debug.h"
