@@ -24,7 +24,7 @@
  * Uncomment one of these to enable debug logging across the entire project.
  * INFO is the least verbose; TRACE is the most verbose.
  */
-#define DEBUG_TRACE
+// #define DEBUG_TRACE
 // #define DEBUG_WARN
 // #define DEBUG_ERROR
 // #define DEBUG_INFO
