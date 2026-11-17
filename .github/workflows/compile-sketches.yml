@@ -4,10 +4,12 @@ name: Compile Sketches
 on:
   push:
     paths:
-      - "src/**"
+      - "firmware/**"
+      - ".github/workflows/compile-sketches.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "firmware/**"
+      - ".github/workflows/compile-sketches.yml"
   schedule:
     # Run every Tuesday at 8 AM UTC to catch breakage caused by changes to external resources (libraries, platforms).
     - cron: "0 8 * * TUE"
@@ -55,7 +57,7 @@ jobs:
               version: 3.0.2
 
           sketch-paths: |
-            - src
+            - firmware/Experimental/TelemetryProof
           enable-deltas-report: true
           sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
 
