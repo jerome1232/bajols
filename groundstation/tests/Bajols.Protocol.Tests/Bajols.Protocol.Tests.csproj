@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" PrivateAssets="all" />
+    <ProjectReference Include="../../Bajols.Protocol/Bajols.Protocol.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../../protocol/test-vectors/wire-v1.json" Link="wire-v1.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -61,6 +61,17 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+# Keep packages.lock.json tracked for reproducible restores.
+
+# Optional repository-local .NET SDK and NuGet caches
+/groundstation/.dotnet/
+/groundstation/.nuget/
+
+# Avalonia build tooling
+.avalonia-build-tasks/
+
+# Arduino CI reports
+/sketches-reports/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -396,3 +407,4 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.idea/

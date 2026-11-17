@@ -1,0 +1,39 @@
+name: Build Ground Station
+
+on:
+  push:
+    paths:
+      - "groundstation/**"
+      - "protocol/**"
+      - ".github/workflows/build-groundstation.yml"
+  pull_request:
+    paths:
+      - "groundstation/**"
+      - "protocol/**"
+      - ".github/workflows/build-groundstation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: groundstation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore locked dependencies
+        run: dotnet restore Bajols.GroundStation.slnx --locked-mode
+      - name: Build
+        run: dotnet build Bajols.GroundStation.slnx --configuration Release --no-restore
+      - name: Ground-station tests
+        run: dotnet test Bajols.GroundStation.slnx --configuration Release --no-build --no-restore

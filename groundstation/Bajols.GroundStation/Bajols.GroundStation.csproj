@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Bajols.Configuration/Bajols.Configuration.csproj" />
+    <ProjectReference Include="../Bajols.Core/Bajols.Core.csproj" />
+    <ProjectReference Include="../Bajols.Communication/Bajols.Communication.csproj" />
+    <ProjectReference Include="../Bajols.Input/Bajols.Input.csproj" />
+  </ItemGroup>
+  <ItemGroup><None Update="station.yaml" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

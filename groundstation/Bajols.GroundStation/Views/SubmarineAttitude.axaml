@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Bajols.GroundStation.ViewModels"
+             x:Class="Bajols.GroundStation.Views.SubmarineAttitude"
+             x:DataType="vm:MainWindowViewModel">
+  <StackPanel Spacing="12">
+    <TextBlock Text="VEHICLE ATTITUDE" Foreground="#A9BAC8" FontSize="13" />
+    <TextBlock Text="{Binding AttitudeSource}" Foreground="#F2C879" FontSize="11" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Opacity="0.9">
+      <Border Grid.Column="0" Background="#101C27" CornerRadius="8" Padding="8">
+        <StackPanel Spacing="4">
+          <TextBlock Text="SIDE · PITCH" Foreground="#A9BAC8" FontSize="11" />
+          <Viewbox Height="150" Stretch="Uniform">
+            <Canvas Width="320" Height="200">
+              <Line StartPoint="8,100" EndPoint="312,100" Stroke="#365162" StrokeDashArray="4,4" />
+              <Line StartPoint="160,15" EndPoint="160,185" Stroke="#243B4B" />
+              <Canvas Width="320" Height="200" RenderTransformOrigin="50%,50%" IsVisible="{Binding HasAttitude}">
+                <Canvas.RenderTransform>
+                  <RotateTransform Angle="{Binding PitchScreenAngle}">
+                    <RotateTransform.Transitions><Transitions><DoubleTransition Property="Angle" Duration="0:0:0.18" /></Transitions></RotateTransform.Transitions>
+                  </RotateTransform>
+                </Canvas.RenderTransform>
+                <Path Data="M 70,78 C 110,70 230,70 263,83 C 292,94 292,106 263,117 C 230,130 110,130 70,122 L 49,110 L 49,90 Z" Fill="#69CCC4" />
+                <Path Data="M 137,76 L 141,53 Q 143,47 155,47 L 172,47 Q 180,49 182,76 Z" Fill="#69CCC4" />
+                <Path Data="M 156,47 L 156,34 L 171,34 L 171,39 L 163,39 L 163,47 Z" Fill="#69CCC4" />
+                <Path Data="M 73,87 L 43,59 L 43,90 L 73,99 M 73,113 L 43,141 L 43,110 L 73,101" Fill="#3E9EAA" />
+                <Line StartPoint="34,83" EndPoint="34,117" Stroke="#A8DDE1" StrokeThickness="6" />
+                <Line StartPoint="49,100" EndPoint="30,100" Stroke="#A8DDE1" StrokeThickness="4" />
+                <Ellipse Width="8" Height="8" Canvas.Left="238" Canvas.Top="96" Fill="#173644" />
+              </Canvas>
+            </Canvas>
+          </Viewbox>
+          <TextBlock Text="{Binding PitchLabel}" Foreground="#D4E7EC" FontSize="12" TextAlignment="Center" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Background="#101C27" CornerRadius="8" Padding="8">
+        <StackPanel Spacing="4">
+          <TextBlock Text="TOP · HEADING" Foreground="#A9BAC8" FontSize="11" />
+          <Viewbox Height="150" Stretch="Uniform">
+            <Canvas Width="220" Height="220">
+              <Ellipse Width="184" Height="184" Canvas.Left="18" Canvas.Top="18" Stroke="#365162" />
+              <Line StartPoint="110,25" EndPoint="110,195" Stroke="#243B4B" />
+              <Line StartPoint="25,110" EndPoint="195,110" Stroke="#243B4B" />
+              <TextBlock Text="N" Canvas.Left="104" Canvas.Top="0" Foreground="#F2C879" />
+              <TextBlock Text="E" Canvas.Left="205" Canvas.Top="101" Foreground="#A9BAC8" />
+              <TextBlock Text="S" Canvas.Left="105" Canvas.Top="200" Foreground="#A9BAC8" />
+              <TextBlock Text="W" Canvas.Left="0" Canvas.Top="101" Foreground="#A9BAC8" />
+              <Canvas Width="220" Height="220" RenderTransformOrigin="50%,50%" IsVisible="{Binding HasAttitude}">
+                <Canvas.RenderTransform>
+                  <RotateTransform Angle="{Binding HeadingAngle}">
+                    <RotateTransform.Transitions><Transitions><DoubleTransition Property="Angle" Duration="0:0:0.18" /></Transitions></RotateTransform.Transitions>
+                  </RotateTransform>
+                </Canvas.RenderTransform>
+                <Path Data="M 110,36 C 128,38 134,66 134,105 L 129,156 L 118,179 L 102,179 L 91,156 L 86,105 C 86,66 92,38 110,36 Z" Fill="#69CCC4" />
+                <Path Data="M 89,95 L 60,104 L 60,115 L 90,113 M 131,95 L 160,104 L 160,115 L 130,113 M 99,157 L 77,174 L 77,182 L 104,174 M 121,157 L 143,174 L 143,182 L 116,174" Fill="#3E9EAA" />
+                <Ellipse Width="18" Height="34" Canvas.Left="101" Canvas.Top="84" Fill="#307E8E" />
+                <Line StartPoint="96,186" EndPoint="124,186" Stroke="#A8DDE1" StrokeThickness="5" />
+              </Canvas>
+            </Canvas>
+          </Viewbox>
+          <TextBlock Text="{Binding Heading}" Foreground="#D4E7EC" FontSize="12" TextAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </StackPanel>
+</UserControl>

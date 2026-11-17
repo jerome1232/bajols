@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Bajols.Core/Bajols.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Bajols.GroundStation.ViewModels"
+        xmlns:views="using:Bajols.GroundStation.Views"
+        x:Class="Bajols.GroundStation.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="BAJOLS Ground Station" Width="1100" Height="920"
+        MinWidth="820" MinHeight="600" Background="#101820">
+  <Window.Styles>
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="#1B2833" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="20" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="#A9BAC8" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="30" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Window.Styles>
+  <Grid Margin="28" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="20">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="4">
+        <TextBlock Text="BAJOLS" FontSize="30" FontWeight="Bold" />
+        <TextBlock Text="GROUND STATION / VEHICLE OPERATIONS" Classes="label" />
+      </StackPanel>
+      <Border Grid.Column="1" Classes="panel" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="{Binding Connection}" Foreground="#F2C879" VerticalAlignment="Center" />
+          <Button Content="Connect" Command="{Binding ConnectCommand}" />
+          <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+    <Border Grid.Row="1" Background="#342D20" CornerRadius="8" Padding="16">
+      <TextBlock Text="{Binding StatusMessage}" Foreground="#F2C879" TextWrapping="Wrap" />
+    </Border>
+    <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="16">
+      <Border Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="DEPTH" /><TextBlock Classes="value" Text="{Binding Depth}" /></StackPanel></Border>
+      <Border Grid.Column="1" Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="HEADING" /><TextBlock Classes="value" Text="{Binding Heading}" /></StackPanel></Border>
+      <Border Grid.Column="2" Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="SUPPLY" /><TextBlock Classes="value" Text="{Binding Voltage}" /></StackPanel></Border>
+      <Border Grid.Column="3" Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="PROPULSION" /><TextBlock Classes="value" Text="{Binding MotorRpm}" /></StackPanel></Border>
+    </Grid>
+    <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled"><Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+      <Border Classes="panel">
+        <StackPanel Spacing="16">
+          <views:SubmarineAttitude />
+          <TextBlock Text="VEHICLE STATUS" Classes="label" />
+          <TextBlock Text="{Binding VehicleState}" Classes="value" />
+          <TextBlock Text="Movement owner" Classes="label" />
+          <TextBlock Text="{Binding MovementOwner}" />
+          <TextBlock Text="{Binding BuoyancyStatus}" Foreground="#A9BAC8" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Qualification}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Restrictions}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding LastAction}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding LastFault}" TextWrapping="Wrap" />
+          <StackPanel IsVisible="{Binding IsSimulation}" Spacing="8">
+            <TextBlock Text="SIMULATED VEHICLE · FAULT INJECTION" Classes="label" />
+            <CheckBox Content="Drop incoming movement" IsChecked="{Binding SimulateMovementLoss}" />
+            <WrapPanel>
+              <Button Content="Depth 5 m" Command="{Binding DepthLimitCommand}" Margin="0,0,8,8" />
+              <Button Content="Depth sensor lost" Command="{Binding DepthSensorFaultCommand}" Margin="0,0,8,8" />
+              <Button Content="Restore depth 2 m" Command="{Binding RestoreDepthCommand}" Margin="0,0,8,8" />
+              <Button Content="Local emergency reset" Command="{Binding LocalResetCommand}" Margin="0,0,8,8" />
+            </WrapPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Classes="panel">
+        <StackPanel Spacing="16">
+          <TextBlock Text="CONTROL" Classes="label" />
+          <TextBlock Text="Hold input enable or Space to qualify and send effort." TextWrapping="Wrap" Foreground="#A9BAC8" />
+          <Button x:Name="InputEnable" Content="HOLD TO ENABLE INPUT" PointerPressed="EnablePressed" PointerReleased="EnableReleased" PointerCaptureLost="EnableLost" />
+          <TextBlock Text="Forward · W / S" Classes="label" />
+          <Slider Minimum="-1" Maximum="1" Value="{Binding Forward}" />
+          <TextBlock Text="Yaw · A / D" Classes="label" />
+          <Slider Minimum="-1" Maximum="1" Value="{Binding Yaw}" />
+          <TextBlock Text="Dive · R / F (positive down)" Classes="label" />
+          <Slider Minimum="-1" Maximum="1" Value="{Binding Dive}" />
+          <ComboBox SelectedIndex="{Binding BuoyancyIndex}" HorizontalAlignment="Stretch">
+            <ComboBoxItem Content="Seek neutral buoyancy" /><ComboBoxItem Content="Seek positive buoyancy" /><ComboBoxItem Content="Seek negative buoyancy" />
+          </ComboBox>
+          <WrapPanel>
+            <Button Content="Arm" Command="{Binding ArmCommand}" Margin="0,0,8,8" />
+            <Button Content="Disarm" Command="{Binding DisarmCommand}" Margin="0,0,8,8" />
+            <Button Content="Clear failsafe" Command="{Binding ClearFailsafeCommand}" Margin="0,0,8,8" />
+            <Button Content="Emergency stop" Command="{Binding EmergencyStopCommand}" Background="#902F37" Margin="0,0,8,8" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </Grid></ScrollViewer>
+    <TextBlock Grid.Row="4" Text="{Binding LinkFreshness}" Classes="label" />
+  </Grid>
+</Window>
