@@ -32,8 +32,10 @@ intentionally when changing dependencies.
 2. Hold **Space** with forward/yaw/dive centered. After one second of fresh neutral
    input, press **Arm** while continuing to hold Space.
 3. Use sliders or W/S (forward/reverse), A/D (port/starboard), R/F (down/up). Keyboard
-   effort is 50%; sliders cover the full normalized range. Select a buoyancy target
-   independently. These are high-level effort/target commands, never actuator outputs.
+   effort is 50%; sliders cover the full normalized range. The **Buoyancy** section
+   has Neutral, Positive and Negative mode buttons; exactly one is selected at a
+   time, with Neutral selected initially and after input release. These are
+   high-level effort/target commands, never actuator outputs.
 4. Releasing Space or the input-enable button, losing window focus or disconnecting
    clears local input. Without fresh movement the peer enters command-loss failsafe.
 5. Restore held neutral input, press **Clear failsafe**, complete qualification again,
@@ -100,6 +102,15 @@ silent fallback to simulation after a malformed configuration. Restart to reload
 Desktop configuration does not override onboard safety thresholds or the depth limit.
 
 ## Project boundaries
+
+C# style: use one statement per line and braces for every conditional body.
+Document every type, record, field, property, event, enum member, method and
+constructor, including private helpers and tests, with XML summaries. Give grouped
+fields separate declarations and summaries. Document positional record properties
+and primary constructors with parameter descriptions; document local functions
+with explanatory comments. The ground-station `.editorconfig` records formatting
+preferences. The build enforces braces and emits XML documentation, treating missing
+public API documentation as an error.
 
 | Project | Responsibility |
 |---|---|

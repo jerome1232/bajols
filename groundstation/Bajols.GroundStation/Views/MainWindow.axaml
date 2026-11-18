@@ -4,13 +4,17 @@
         xmlns:views="using:Bajols.GroundStation.Views"
         x:Class="Bajols.GroundStation.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="BAJOLS Ground Station" Width="1100" Height="920"
-        MinWidth="820" MinHeight="600" Background="#101820">
+        Title="BAJOLS Ground Station" Width="1440" Height="1000"
+        MinWidth="1280" MinHeight="900" Background="#101820">
+  <Window.Resources>
+    <ControlTheme x:Key="BuoyancyModeButton" TargetType="RadioButton"
+                  BasedOn="{StaticResource {x:Type ToggleButton}}" />
+  </Window.Resources>
   <Window.Styles>
     <Style Selector="Border.panel">
       <Setter Property="Background" Value="#1B2833" />
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="20" />
+      <Setter Property="Padding" Value="16" />
     </Style>
     <Style Selector="TextBlock.label">
       <Setter Property="Foreground" Value="#A9BAC8" />
@@ -21,7 +25,7 @@
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
   </Window.Styles>
-  <Grid Margin="28" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="20">
+  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" RowSpacing="12">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Spacing="4">
         <TextBlock Text="BAJOLS" FontSize="30" FontWeight="Bold" />
@@ -35,7 +39,7 @@
         </StackPanel>
       </Border>
     </Grid>
-    <Border Grid.Row="1" Background="#342D20" CornerRadius="8" Padding="16">
+    <Border Grid.Row="1" Background="#342D20" CornerRadius="8" Padding="12">
       <TextBlock Text="{Binding StatusMessage}" Foreground="#F2C879" TextWrapping="Wrap" />
     </Border>
     <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="16">
@@ -44,10 +48,12 @@
       <Border Grid.Column="2" Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="SUPPLY" /><TextBlock Classes="value" Text="{Binding Voltage}" /></StackPanel></Border>
       <Border Grid.Column="3" Classes="panel"><StackPanel Spacing="12"><TextBlock Classes="label" Text="PROPULSION" /><TextBlock Classes="value" Text="{Binding MotorRpm}" /></StackPanel></Border>
     </Grid>
-    <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled"><Grid ColumnDefinitions="*,*" ColumnSpacing="16">
-      <Border Classes="panel">
-        <StackPanel Spacing="16">
-          <views:SubmarineAttitude />
+    <Grid Grid.Row="3" ColumnDefinitions="*,*,1.1*" ColumnSpacing="12">
+      <Border x:Name="AttitudePanel" Classes="panel">
+        <views:SubmarineAttitude />
+      </Border>
+      <Border x:Name="StatusPanel" Grid.Column="1" Classes="panel">
+        <StackPanel Spacing="10">
           <TextBlock Text="VEHICLE STATUS" Classes="label" />
           <TextBlock Text="{Binding VehicleState}" Classes="value" />
           <TextBlock Text="Movement owner" Classes="label" />
@@ -57,20 +63,11 @@
           <TextBlock Text="{Binding Restrictions}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding LastAction}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding LastFault}" TextWrapping="Wrap" />
-          <StackPanel IsVisible="{Binding IsSimulation}" Spacing="8">
-            <TextBlock Text="SIMULATED VEHICLE · FAULT INJECTION" Classes="label" />
-            <CheckBox Content="Drop incoming movement" IsChecked="{Binding SimulateMovementLoss}" />
-            <WrapPanel>
-              <Button Content="Depth 5 m" Command="{Binding DepthLimitCommand}" Margin="0,0,8,8" />
-              <Button Content="Depth sensor lost" Command="{Binding DepthSensorFaultCommand}" Margin="0,0,8,8" />
-              <Button Content="Restore depth 2 m" Command="{Binding RestoreDepthCommand}" Margin="0,0,8,8" />
-              <Button Content="Local emergency reset" Command="{Binding LocalResetCommand}" Margin="0,0,8,8" />
-            </WrapPanel>
-          </StackPanel>
+
         </StackPanel>
       </Border>
-      <Border Grid.Column="1" Classes="panel">
-        <StackPanel Spacing="16">
+      <Border x:Name="ControlPanel" Grid.Column="2" Classes="panel">
+        <StackPanel Spacing="8">
           <TextBlock Text="CONTROL" Classes="label" />
           <TextBlock Text="Hold input enable or Space to qualify and send effort." TextWrapping="Wrap" Foreground="#A9BAC8" />
           <Button x:Name="InputEnable" Content="HOLD TO ENABLE INPUT" PointerPressed="EnablePressed" PointerReleased="EnableReleased" PointerCaptureLost="EnableLost" />
@@ -80,9 +77,18 @@
           <Slider Minimum="-1" Maximum="1" Value="{Binding Yaw}" />
           <TextBlock Text="Dive · R / F (positive down)" Classes="label" />
           <Slider Minimum="-1" Maximum="1" Value="{Binding Dive}" />
-          <ComboBox SelectedIndex="{Binding BuoyancyIndex}" HorizontalAlignment="Stretch">
-            <ComboBoxItem Content="Seek neutral buoyancy" /><ComboBoxItem Content="Seek positive buoyancy" /><ComboBoxItem Content="Seek negative buoyancy" />
-          </ComboBox>
+          <TextBlock Text="BUOYANCY" Classes="label" />
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+            <RadioButton x:Name="NeutralBuoyancyMode" Content="Neutral" GroupName="BuoyancyModes"
+                         IsChecked="{Binding IsNeutralBuoyancy, Mode=TwoWay}"
+                         Theme="{StaticResource BuoyancyModeButton}" HorizontalAlignment="Stretch" />
+            <RadioButton x:Name="PositiveBuoyancyMode" Grid.Column="1" Content="Positive" GroupName="BuoyancyModes"
+                         IsChecked="{Binding IsPositiveBuoyancy, Mode=TwoWay}"
+                         Theme="{StaticResource BuoyancyModeButton}" HorizontalAlignment="Stretch" />
+            <RadioButton x:Name="NegativeBuoyancyMode" Grid.Column="2" Content="Negative" GroupName="BuoyancyModes"
+                         IsChecked="{Binding IsNegativeBuoyancy, Mode=TwoWay}"
+                         Theme="{StaticResource BuoyancyModeButton}" HorizontalAlignment="Stretch" />
+          </Grid>
           <WrapPanel>
             <Button Content="Arm" Command="{Binding ArmCommand}" Margin="0,0,8,8" />
             <Button Content="Disarm" Command="{Binding DisarmCommand}" Margin="0,0,8,8" />
@@ -91,7 +97,19 @@
           </WrapPanel>
         </StackPanel>
       </Border>
-    </Grid></ScrollViewer>
-    <TextBlock Grid.Row="4" Text="{Binding LinkFreshness}" Classes="label" />
+    </Grid>
+    <Border Grid.Row="4" Classes="panel" Padding="12" IsVisible="{Binding IsSimulation}">
+      <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+        <TextBlock Text="SIMULATED VEHICLE · FAULT INJECTION" Classes="label" />
+        <CheckBox Content="Drop incoming movement" IsChecked="{Binding SimulateMovementLoss}" />
+        <WrapPanel>
+          <Button Content="Depth 5 m" Command="{Binding DepthLimitCommand}" Margin="0,0,8,0" />
+          <Button Content="Depth sensor lost" Command="{Binding DepthSensorFaultCommand}" Margin="0,0,8,0" />
+          <Button Content="Restore depth 2 m" Command="{Binding RestoreDepthCommand}" Margin="0,0,8,0" />
+          <Button Content="Local emergency reset" Command="{Binding LocalResetCommand}" Margin="0,0,8,0" />
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+    <TextBlock Grid.Row="5" Text="{Binding LinkFreshness}" Classes="label" />
   </Grid>
 </Window>

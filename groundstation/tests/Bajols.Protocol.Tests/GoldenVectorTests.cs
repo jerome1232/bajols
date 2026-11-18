@@ -3,19 +3,43 @@ using Xunit;
 
 namespace Bajols.Protocol.Tests;
 
+/// <summary>
+/// Cross-language conformance tests against independent shared BCP wire fixtures.
+/// </summary>
 public sealed class GoldenVectorTests
 {
+    /// <summary>
+    /// Loads independent shared wire fixtures from the linked JSON file.
+    /// </summary>
     private static JsonElement[] Load()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "wire-v1.json")));
         return document.RootElement.GetProperty("vectors").EnumerateArray().Select(v => v.Clone()).ToArray();
     }
-    public static IEnumerable<object[]> VectorNames => Load().Select(v => new object[] { v.GetProperty("name").GetString()! });
-    internal static byte[] Wire(string name) => Convert.FromHexString(Vector(name).GetProperty("wire_hex").GetString()!);
-    internal static JsonElement Vector(string name) => Load().Single(v => v.GetProperty("name").GetString() == name);
-    internal static WireDirection Direction(JsonElement v) =>
-        v.TryGetProperty("direction", out var d) && d.GetString() == "vehicle_to_pc" ? WireDirection.VehicleToPc : WireDirection.PcToVehicle;
 
+    /// <summary>
+    /// Names of shared wire fixtures supplied as independent parameterized test cases.
+    /// </summary>
+    public static IEnumerable<object[]> VectorNames => Load().Select(v => new object[] { v.GetProperty("name").GetString()! });
+
+    /// <summary>
+    /// Reads a named fixture&apos;s expected transmitted bytes.
+    /// </summary>
+    internal static byte[] Wire(string name) => Convert.FromHexString(Vector(name).GetProperty("wire_hex").GetString()!);
+
+    /// <summary>
+    /// Finds the named shared protocol fixture without duplicating its expected values.
+    /// </summary>
+    internal static JsonElement Vector(string name) => Load().Single(v => v.GetProperty("name").GetString() == name);
+
+    /// <summary>
+    /// Resolves a fixture&apos;s transmission direction, defaulting malformed-frame samples to PC-to-vehicle.
+    /// </summary>
+    internal static WireDirection Direction(JsonElement v) => v.TryGetProperty("direction", out var d) && d.GetString() == "vehicle_to_pc" ? WireDirection.VehicleToPc : WireDirection.PcToVehicle;
+
+    /// <summary>
+    /// Verifies shared vector matches frame and typed contract.
+    /// </summary>
     [Theory]
     [MemberData(nameof(VectorNames))]
     public void Shared_vector_matches_frame_and_typed_contract(string name)
@@ -40,37 +64,49 @@ public sealed class GoldenVectorTests
             Assert.Equal(wire, encoded[..size]);
             VerifyRaw(v, wire);
         }
-        else if (expected == "framing_valid_unknown_message")
-        {
-            Assert.False(success); Assert.Null(packet); Assert.Equal(CodecError.UnsupportedMessage, error);
-            VerifyRaw(v, wire);
-        }
-        else if (expected == "skip_unknown_measurement")
-        {
-            Assert.True(success, error.ToString());
-            Assert.Empty(Assert.IsType<Telemetry>(packet!.Message).Records);
-            VerifyRaw(v, wire);
-        }
         else
         {
-            Assert.False(success); Assert.Null(packet);
-            var expectedError = expected switch
+            if (expected == "framing_valid_unknown_message")
             {
-                "reject_payload" => CodecError.InvalidPayload,
-                "reject_payload_length" => CodecError.InvalidPayloadLength,
-                "reject_version" => CodecError.UnsupportedVersion,
-                "reject_reserved_flags" => CodecError.ReservedFlags,
-                "reject_telemetry_duplicate_ids" => CodecError.DuplicateMeasurement,
-                "reject_crc" => CodecError.InvalidCrc,
-                "reject_frame_length" => CodecError.InvalidFrameLength,
-                "reject_cobs" => CodecError.InvalidCobs,
-                "discard_through_delimiter" => CodecError.FrameTooLarge,
-                _ => throw new InvalidOperationException($"Unhandled vector expectation: {expected}")
-            };
-            Assert.Equal(expectedError, error);
+                Assert.False(success);
+                Assert.Null(packet);
+                Assert.Equal(CodecError.UnsupportedMessage, error);
+                VerifyRaw(v, wire);
+            }
+            else
+            {
+                if (expected == "skip_unknown_measurement")
+                {
+                    Assert.True(success, error.ToString());
+                    Assert.Empty(Assert.IsType<Telemetry>(packet!.Message).Records);
+                    VerifyRaw(v, wire);
+                }
+                else
+                {
+                    Assert.False(success);
+                    Assert.Null(packet);
+                    var expectedError = expected switch
+                    {
+                        "reject_payload" => CodecError.InvalidPayload,
+                        "reject_payload_length" => CodecError.InvalidPayloadLength,
+                        "reject_version" => CodecError.UnsupportedVersion,
+                        "reject_reserved_flags" => CodecError.ReservedFlags,
+                        "reject_telemetry_duplicate_ids" => CodecError.DuplicateMeasurement,
+                        "reject_crc" => CodecError.InvalidCrc,
+                        "reject_frame_length" => CodecError.InvalidFrameLength,
+                        "reject_cobs" => CodecError.InvalidCobs,
+                        "discard_through_delimiter" => CodecError.FrameTooLarge,
+                        _ => throw new InvalidOperationException($"Unhandled vector expectation: {expected}")
+                    };
+                    Assert.Equal(expectedError, error);
+                }
+            }
         }
     }
 
+    /// <summary>
+    /// Checks raw payload bytes, CRC coverage and exact frame re-encoding against the shared fixture.
+    /// </summary>
     private static void VerifyRaw(JsonElement v, byte[] wire)
     {
         Assert.True(FrameCodec.TryDecode(wire, out var frame, out var error), error.ToString());
@@ -85,12 +121,34 @@ public sealed class GoldenVectorTests
         Assert.Equal(wire, encoded[..size]);
     }
 
+    /// <summary>
+    /// Reads an expected unsigned 32-bit field from a JSON fixture.
+    /// </summary>
     private static uint U32(JsonElement f, string n) => f.GetProperty(n).GetUInt32();
+
+    /// <summary>
+    /// Reads an expected unsigned 16-bit field from a JSON fixture.
+    /// </summary>
     private static ushort U16(JsonElement f, string n) => f.GetProperty(n).GetUInt16();
+
+    /// <summary>
+    /// Reads an expected unsigned byte field from a JSON fixture.
+    /// </summary>
     private static byte U8(JsonElement f, string n) => f.GetProperty(n).GetByte();
+
+    /// <summary>
+    /// Reads an expected signed 16-bit field from a JSON fixture.
+    /// </summary>
     private static short I16(JsonElement f, string n) => f.GetProperty(n).GetInt16();
+
+    /// <summary>
+    /// Reads expected opaque identity bytes from a JSON fixture without UUID conversion.
+    /// </summary>
     private static OpaqueId128 Id(JsonElement f, string n) => OpaqueId128.FromBytes(Convert.FromHexString(f.GetProperty(n).GetString()!));
 
+    /// <summary>
+    /// Constructs a typed expected message independently from the fixture&apos;s human-readable field values.
+    /// </summary>
     private static BcpMessage ExpectedMessage(MessageType type, JsonElement f) => type switch
     {
         MessageType.Hello => new Hello(Id(f, "nonce_hex"), U8(f, "requested_version")),

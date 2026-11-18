@@ -8,8 +8,22 @@ namespace Bajols.Communication;
 /// </summary>
 public interface IByteTransport : IAsyncDisposable
 {
-    ConnectionState State { get; }
+    /// <summary>
+    /// Current byte-transport lifecycle state; connected does not imply an authorized vehicle session.
+    /// </summary>
+    ConnectionState State
+    {
+        get;
+    }
+
+    /// <summary>
+    /// Opens the byte stream without establishing vehicle control authority.
+    /// </summary>
     ValueTask OpenAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes the byte stream and ends pending connection activity.
+    /// </summary>
     ValueTask CloseAsync(CancellationToken cancellationToken);
 
     /// <summary>Reads into caller-owned storage; zero indicates end of stream.</summary>
