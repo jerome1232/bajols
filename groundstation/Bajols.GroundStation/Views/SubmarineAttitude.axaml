@@ -1,66 +1,103 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Bajols.GroundStation.ViewModels"
+             xmlns:views="using:Bajols.GroundStation.Views"
              x:Class="Bajols.GroundStation.Views.SubmarineAttitude"
              x:DataType="vm:MainWindowViewModel">
-  <StackPanel Spacing="12">
-    <TextBlock Text="VEHICLE ATTITUDE" Foreground="#A9BAC8" FontSize="13" />
-    <TextBlock Text="{Binding AttitudeSource}" Foreground="#F2C879" FontSize="11" TextWrapping="Wrap" />
-    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Opacity="0.9">
-      <Border Grid.Column="0" Background="#101C27" CornerRadius="8" Padding="8">
-        <StackPanel Spacing="4">
-          <TextBlock Text="SIDE · PITCH" Foreground="#A9BAC8" FontSize="11" />
-          <Viewbox Height="150" Stretch="Uniform">
-            <Canvas Width="320" Height="200">
-              <Line StartPoint="8,100" EndPoint="312,100" Stroke="#365162" StrokeDashArray="4,4" />
-              <Line StartPoint="160,15" EndPoint="160,185" Stroke="#243B4B" />
-              <Canvas Width="320" Height="200" RenderTransformOrigin="50%,50%" IsVisible="{Binding HasAttitude}">
-                <Canvas.RenderTransform>
-                  <RotateTransform Angle="{Binding PitchScreenAngle}">
-                    <RotateTransform.Transitions><Transitions><DoubleTransition Property="Angle" Duration="0:0:0.18" /></Transitions></RotateTransform.Transitions>
-                  </RotateTransform>
-                </Canvas.RenderTransform>
-                <Path Data="M 70,78 C 110,70 230,70 263,83 C 292,94 292,106 263,117 C 230,130 110,130 70,122 L 49,110 L 49,90 Z" Fill="#69CCC4" />
-                <Path Data="M 137,76 L 141,53 Q 143,47 155,47 L 172,47 Q 180,49 182,76 Z" Fill="#69CCC4" />
-                <Path Data="M 156,47 L 156,34 L 171,34 L 171,39 L 163,39 L 163,47 Z" Fill="#69CCC4" />
-                <Path Data="M 73,87 L 43,59 L 43,90 L 73,99 M 73,113 L 43,141 L 43,110 L 73,101" Fill="#3E9EAA" />
-                <Line StartPoint="34,83" EndPoint="34,117" Stroke="#A8DDE1" StrokeThickness="6" />
-                <Line StartPoint="49,100" EndPoint="30,100" Stroke="#A8DDE1" StrokeThickness="4" />
-                <Ellipse Width="8" Height="8" Canvas.Left="238" Canvas.Top="96" Fill="#173644" />
-              </Canvas>
-            </Canvas>
-          </Viewbox>
-          <TextBlock Text="{Binding PitchLabel}" Foreground="#D4E7EC" FontSize="12" TextAlignment="Center" />
-        </StackPanel>
-      </Border>
-      <Border Grid.Column="1" Background="#101C27" CornerRadius="8" Padding="8">
-        <StackPanel Spacing="4">
-          <TextBlock Text="TOP · HEADING" Foreground="#A9BAC8" FontSize="11" />
-          <Viewbox Height="150" Stretch="Uniform">
-            <Canvas Width="220" Height="220">
-              <Ellipse Width="184" Height="184" Canvas.Left="18" Canvas.Top="18" Stroke="#365162" />
-              <Line StartPoint="110,25" EndPoint="110,195" Stroke="#243B4B" />
-              <Line StartPoint="25,110" EndPoint="195,110" Stroke="#243B4B" />
-              <TextBlock Text="N" Canvas.Left="104" Canvas.Top="0" Foreground="#F2C879" />
-              <TextBlock Text="E" Canvas.Left="205" Canvas.Top="101" Foreground="#A9BAC8" />
-              <TextBlock Text="S" Canvas.Left="105" Canvas.Top="200" Foreground="#A9BAC8" />
-              <TextBlock Text="W" Canvas.Left="0" Canvas.Top="101" Foreground="#A9BAC8" />
-              <Canvas Width="220" Height="220" RenderTransformOrigin="50%,50%" IsVisible="{Binding HasAttitude}">
-                <Canvas.RenderTransform>
-                  <RotateTransform Angle="{Binding HeadingAngle}">
-                    <RotateTransform.Transitions><Transitions><DoubleTransition Property="Angle" Duration="0:0:0.18" /></Transitions></RotateTransform.Transitions>
-                  </RotateTransform>
-                </Canvas.RenderTransform>
-                <Path Data="M 110,36 C 128,38 134,66 134,105 L 129,156 L 118,179 L 102,179 L 91,156 L 86,105 C 86,66 92,38 110,36 Z" Fill="#69CCC4" />
-                <Path Data="M 89,95 L 60,104 L 60,115 L 90,113 M 131,95 L 160,104 L 160,115 L 130,113 M 99,157 L 77,174 L 77,182 L 104,174 M 121,157 L 143,174 L 143,182 L 116,174" Fill="#3E9EAA" />
-                <Ellipse Width="18" Height="34" Canvas.Left="101" Canvas.Top="84" Fill="#307E8E" />
-                <Line StartPoint="96,186" EndPoint="124,186" Stroke="#A8DDE1" StrokeThickness="5" />
-              </Canvas>
-            </Canvas>
-          </Viewbox>
-          <TextBlock Text="{Binding Heading}" Foreground="#D4E7EC" FontSize="12" TextAlignment="Center" />
-        </StackPanel>
-      </Border>
+  <StackPanel Spacing="8">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+      <TextBlock Text="VEHICLE ATTITUDE · 3D" Foreground="#A9BAC8" FontSize="13" />
+      <TextBlock Grid.Column="1" Text="{Binding AttitudeSource}" Foreground="#F2C879" FontSize="11" TextWrapping="Wrap" />
     </Grid>
+    <Border Background="#101C27" CornerRadius="8" Padding="8">
+      <StackPanel Spacing="6">
+        <Grid>
+          <views:SubmarineScene x:Name="AttitudeScene" Height="316" TopOverlayHeight="88"
+                              Heading="{Binding HeadingAngle}" Pitch="{Binding PitchAngle}"
+                              HasAttitude="{Binding HasAttitude}" HasForwardRange="{Binding HasForwardRange}"
+                              ForwardObstacles="{Binding ForwardObstacles}"
+                              ObstaclePulse="{Binding ForwardObstaclePulse}"
+                              AutomationProperties.Name="3D vehicle attitude. North into the screen, south toward you, east right, west left." />
+          <Grid x:Name="TelemetryOverlay" HorizontalAlignment="Center" VerticalAlignment="Top"
+                Width="480" Margin="0,94,0,0" ColumnDefinitions="*,*" IsHitTestVisible="False">
+            <StackPanel Spacing="1" HorizontalAlignment="Left">
+              <TextBlock Text="{Binding Voltage}" FontSize="16" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="1" HorizontalAlignment="Right">
+              <TextBlock Text="{Binding MotorRpm}" FontSize="16" FontWeight="SemiBold" />
+            </StackPanel>
+          </Grid>
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,380,8"
+                      Spacing="1" IsHitTestVisible="False">
+            <TextBlock x:Name="HeadingDirection" Text="{Binding HeadingDirection}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock x:Name="HeadingDegrees" Text="{Binding HeadingDegreesLabel}" Foreground="#A9BAC8" FontSize="11" HorizontalAlignment="Center" />
+          </StackPanel>
+          <Canvas x:Name="DepthGauge" Width="140" Height="64" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="400,88,0,0" IsHitTestVisible="False"
+                  AutomationProperties.Name="Depth scale: surface at zero metres, maximum at 4.5 metres">
+            <Border Canvas.Left="36" Canvas.Top="8" Width="8" Height="48" CornerRadius="3">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                  <GradientStop Offset="0" Color="#69CCC4" />
+                  <GradientStop Offset="0.7" Color="#F2C879" />
+                  <GradientStop Offset="1" Color="#F14959" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border x:Name="DepthMarker" Canvas.Left="31" Canvas.Top="{Binding DepthIndicatorOffset}" Width="18" Height="4"
+                    Background="{Binding DepthWarningBrush}" BorderBrush="#F2F6FA" BorderThickness="1"
+                    IsVisible="{Binding HasDepth}" />
+            <TextBlock Canvas.Left="0" Canvas.Top="0" Text="0 m" Foreground="#A9BAC8" FontSize="11" />
+            <TextBlock Canvas.Left="0" Canvas.Top="48" Text="4.5 m" Foreground="#F14959" FontSize="11" />
+            <TextBlock x:Name="DepthReadout" Canvas.Left="54" Canvas.Top="24" Text="{Binding Depth}"
+                       Foreground="{Binding DepthWarningBrush}" FontSize="12" FontWeight="SemiBold" />
+          </Canvas>
+          <Border x:Name="VehicleStatusOverlay" HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Width="280" Margin="8,88,8,8" Padding="10,4" CornerRadius="6" Background="#CC101C27">
+            <StackPanel Spacing="3">
+              <TextBlock Text="VEHICLE STATUS" Foreground="#A9BAC8" FontSize="11" />
+              <TextBlock Text="{Binding VehicleStatusLabel}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ControlSourceLabel}" FontSize="12" Foreground="#A9BAC8" />
+              <TextBlock Text="{Binding BuoyancyStatus}" FontSize="12" Foreground="#A9BAC8" TextWrapping="Wrap" />
+              <StackPanel Spacing="3" IsVisible="{Binding ShowNeutralHold}">
+                <TextBlock Text="{Binding NeutralHoldLabel}" FontSize="12" />
+                <ProgressBar x:Name="NeutralHoldProgress" Minimum="0" Maximum="1000" Height="6"
+                             Value="{Binding NeutralHoldProgress}" Foreground="#69CCC4"
+                             AutomationProperties.Name="One-second neutral input qualification" />
+              </StackPanel>
+              <TextBlock Text="{Binding Qualification}" FontSize="12" Foreground="#F2C879" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding Restrictions}" FontSize="12" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastAction}" FontSize="11" Foreground="#A9BAC8" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastFault}" FontSize="11" Foreground="#A9BAC8" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Width="244" Margin="8,88,8,8" Spacing="4">
+            <TextBlock Text="FORWARD RETURNS · 0–6 M" Foreground="#A9BAC8" FontSize="12" />
+            <TextBlock x:Name="ForwardRangeSummary" Text="{Binding ForwardRangeSummary}" Foreground="#F2C879" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <StackPanel IsVisible="{Binding IsSimulation}" Spacing="2">
+              <CheckBox x:Name="SimulateForwardObstacle" Content="Body-relative test return" IsChecked="{Binding SimulateForwardObstacle}" />
+              <Grid ColumnDefinitions="52,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="2">
+                <TextBlock Text="{Binding SimulatedObstacleMetres, StringFormat='{}{0:0.##} m'}" Foreground="#A9BAC8" VerticalAlignment="Center" FontSize="11" />
+                <Slider Grid.Column="1" x:Name="SimulatedObstacleDistance" Minimum="0" Maximum="6" Height="24" MinHeight="0"
+                        Value="{Binding SimulatedObstacleMetres}"
+                        AutomationProperties.Name="Simulated forward obstacle distance in metres" />
+                <TextBlock Grid.Row="1" Text="{Binding SimulatedObstacleBearing, StringFormat='{}{0:+0;-0;0}°'}" Foreground="#A9BAC8" VerticalAlignment="Center" FontSize="11" />
+                <Slider Grid.Row="1" Grid.Column="1" x:Name="SimulatedObstacleBearing" Minimum="-90" Maximum="90" Height="24" MinHeight="0"
+                        Value="{Binding SimulatedObstacleBearing}"
+                        AutomationProperties.Name="Simulated relative bearing; negative port, positive starboard" />
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="PlaceSimulatedObject" Content="Place object" Command="{Binding PlaceObjectCommand}" Padding="6,2" FontSize="11" />
+                <Button x:Name="ClearSimulatedObjects" Content="Clear objects" Command="{Binding ClearObjectsCommand}" Padding="6,2" FontSize="11" />
+              </StackPanel>
+            </StackPanel>
+            <TextBlock Text="Schematic positions · sensor FoV and mounting not calibrated."
+                       Foreground="#A9BAC8" FontSize="11" TextWrapping="Wrap" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="24">
+          <TextBlock Text="{Binding PitchLabel}" Foreground="#D4E7EC" FontSize="12" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

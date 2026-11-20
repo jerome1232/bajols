@@ -33,36 +33,6 @@ public partial class MainWindow : Window
     private MainWindowViewModel? Model => DataContext as MainWindowViewModel;
 
     /// <summary>
-    /// Captures a left-button hold and enables fresh operator input.
-    /// </summary>
-    private void EnablePressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        e.Pointer.Capture(InputEnable);
-        Model?.HoldInput(true);
-        e.Handled = true;
-    }
-
-    /// <summary>
-    /// Releases captured pointer input and clears previous operator intent.
-    /// </summary>
-    private void EnableReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        Model?.ReleaseInput();
-        e.Pointer.Capture(null);
-        e.Handled = true;
-    }
-
-    /// <summary>
-    /// Clears operator input when pointer capture is lost.
-    /// </summary>
-    private void EnableLost(object? sender, PointerCaptureLostEventArgs e) => Model?.ReleaseInput();
-
-    /// <summary>
     /// Applies a pressed keyboard control through the shared key-mapping handler.
     /// </summary>
     private void OnKeyDown(object? sender, KeyEventArgs e) => Key(e, true);

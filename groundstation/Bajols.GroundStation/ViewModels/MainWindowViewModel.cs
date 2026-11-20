@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
+using Avalonia.Media;
 using Bajols.Communication;
 using Bajols.Configuration;
 using Bajols.Core;
@@ -14,6 +15,13 @@ namespace Bajols.GroundStation.ViewModels;
 /// <summary>UI projection of confirmed peer data. Never infers disarmed from missing/stale status.</summary>
 public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposable
 {
+    /// <summary>Sixteen compass points in clockwise order, centred on north at zero degrees.</summary>
+    private static readonly string[] CompassPoints =
+    [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+    ];
+
     /// <summary>
     /// Monotonic clock used to assess displayed measurement freshness.
     /// </summary>
@@ -83,6 +91,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// Current movement-loss fault-injection selection in the dashboard.
     /// </summary>
     private bool movementLoss;
+
+    /// <summary>
+    /// Operator-selected local range-preview detection; never a real sensor result.
+    /// </summary>
+    private bool simulateForwardObstacle;
+
+    /// <summary>
+    /// Requested synthetic clearance in centimetres, independently of vehicle commands.
+    /// </summary>
+    private double simulatedObstacleCentimetres = 300;
+
+    /// <summary>
+    /// Synthetic relative azimuth; the preview hemisphere is not a calibrated sensor field of view.
+    /// </summary>
+    private double simulatedObstacleBearing;
 
     /// <summary>
     /// Current operator-selected renewable normal buoyancy target.
@@ -177,8 +200,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     }
 
     /// <summary>
-    /// Restores the simulated depth sensor at two metres below the surface.
+    /// Places a stationary world object using the selected simulation range and bearing.
     /// </summary>
+    public AsyncCommand PlaceObjectCommand
+    {
+        get;
+    }
+
+    /// <summary>Clears stationary simulation objects and the synthetic test return.</summary>
+    public AsyncCommand ClearObjectsCommand
+    {
+        get;
+    }
+
+    /// <summary>Restores the simulated depth source.</summary>
     public AsyncCommand RestoreDepthCommand
     {
         get;
@@ -240,6 +275,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         RestoreDepthCommand = new(() =>
         {
             simulator?.SetDepth(2000, true);
+            return Task.CompletedTask;
+        }, Error, () => simulator != null);
+        PlaceObjectCommand = new(() =>
+        {
+            simulator?.PlaceObject(simulatedObstacleCentimetres * 10, simulatedObstacleBearing);
+            SimulateForwardObstacle = false;
+            return Task.CompletedTask;
+        }, Error, () => simulator != null);
+        ClearObjectsCommand = new(() =>
+        {
+            simulator?.ClearObjects();
+            SimulateForwardObstacle = false;
             return Task.CompletedTask;
         }, Error, () => simulator != null);
         timer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background, (_, _) => UpdatePresentation());
@@ -353,6 +400,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         Changed(nameof(Forward));
         Changed(nameof(Yaw));
         Changed(nameof(Dive));
+        Changed(nameof(DiveUpPercentage));
+        Changed(nameof(DiveDownPercentage));
         NotifyBuoyancySelection();
     }
 
@@ -370,7 +419,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     }
 
     /// <summary>
-    /// Finite normalized forward effort requested by sliders or keyboard input.
+    /// Finite normalized forward effort requested by the movement pad or keyboard input.
     /// </summary>
     public double Forward
     {
@@ -405,8 +454,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         {
             dive = double.IsFinite(value) ? Math.Clamp(value, -1, 1) : 0;
             Changed();
+            Changed(nameof(DiveUpPercentage));
+            Changed(nameof(DiveDownPercentage));
         }
     }
+
+    /// <summary>
+    /// Unsigned upward effort displayed next to the top of the vertical slider.
+    /// </summary>
+    public string DiveUpPercentage => $"{Math.Max(-dive, 0):0%}";
+
+    /// <summary>
+    /// Unsigned downward effort displayed next to the bottom of the vertical slider.
+    /// </summary>
+    public string DiveDownPercentage => $"{Math.Max(dive, 0):0%}";
 
     /// <summary>
     /// Index of the selected normal buoyancy target in the UI, independent of emergency evacuation.
@@ -421,6 +482,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
                 buoyancy = (BuoyancyTarget)value;
                 NotifyBuoyancySelection();
             }
+        }
+    }
+
+    /// <summary>
+    /// Three-position buoyancy selector: positive up, neutral middle and negative down.
+    /// </summary>
+    public double BuoyancyPosition
+    {
+        get => buoyancy switch
+        {
+            BuoyancyTarget.Positive => 1,
+            BuoyancyTarget.Negative => -1,
+            _ => 0
+        };
+        set
+        {
+            if (!double.IsFinite(value))
+            {
+                return;
+            }
+
+            BuoyancyIndex = value >= 0.5 ? 1 : value <= -0.5 ? 2 : 0;
         }
     }
 
@@ -475,6 +558,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     private void NotifyBuoyancySelection()
     {
         Changed(nameof(BuoyancyIndex));
+        Changed(nameof(BuoyancyPosition));
         Changed(nameof(IsNeutralBuoyancy));
         Changed(nameof(IsPositiveBuoyancy));
         Changed(nameof(IsNegativeBuoyancy));
@@ -491,6 +575,118 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
             movementLoss = value;
             simulator?.DropMovement(value);
             Changed();
+        }
+    }
+
+    /// <summary>
+    /// Enables an explicitly synthetic forward detection in simulator mode only.
+    /// </summary>
+    public bool SimulateForwardObstacle
+    {
+        get => simulateForwardObstacle;
+        set
+        {
+            simulateForwardObstacle = value;
+            UpdateSimulatedReturn();
+            UpdatePresentation();
+        }
+    }
+
+    /// <summary>
+    /// Synthetic sensor-to-return clearance in centimetres, limited to the provisional six-metre display range.
+    /// </summary>
+    public double SimulatedObstacleCentimetres
+    {
+        get => simulatedObstacleCentimetres;
+        set
+        {
+            simulatedObstacleCentimetres = double.IsFinite(value) ? Math.Clamp(value, 0, 600) : 600;
+            UpdateSimulatedReturn();
+            UpdatePresentation();
+        }
+    }
+
+    /// <summary>Selected simulated object range in metres, from zero to the provisional six-metre limit.</summary>
+    public double SimulatedObstacleMetres
+    {
+        get => simulatedObstacleCentimetres / 100;
+        set => SimulatedObstacleCentimetres = value * 100;
+    }
+
+    /// <summary>
+    /// Synthetic bearing in the forward hemisphere; positive values are starboard.
+    /// This is a display control, not the physical sensor's eventual field of view.
+    /// </summary>
+    public double SimulatedObstacleBearing
+    {
+        get => simulatedObstacleBearing;
+        set
+        {
+            simulatedObstacleBearing = double.IsFinite(value) ? Math.Clamp(value, -90, 90) : 0;
+            UpdateSimulatedReturn();
+            UpdatePresentation();
+        }
+    }
+
+    /// <summary>Updates the simulator test beam; display data still travels through BCP.</summary>
+    private void UpdateSimulatedReturn()
+    {
+        simulator?.SetPreviewReturn(simulateForwardObstacle ? (uint)Math.Round(simulatedObstacleCentimetres * 10) : null,
+            (short)Math.Round(simulatedObstacleBearing * 100));
+    }
+
+    /// <summary>Latest source snapshots from the confirmed session, including historical acquisitions.</summary>
+    private IReadOnlyList<ReceivedObjectReport> ObjectReports => HasAttitude &&
+        Snapshot is { SessionEstablished: true, StatusFresh: true } snapshot
+            ? snapshot.ObjectReports.Values.ToArray()
+            : Array.Empty<ReceivedObjectReport>();
+
+    /// <summary>Whether at least one ready source has a fresh acquisition, including empty snapshots.</summary>
+    public bool HasForwardRange => ObjectReports.Any(r => r.IsFresh(clock, TimeSpan.FromMilliseconds(configuration?.TelemetryFreshnessMs ?? 1000)));
+
+    /// <summary>Current and historical forward observations within six metres; at most 64 markers.</summary>
+    public IReadOnlyList<ForwardRangeSample> ForwardObstacles => ObjectReports
+        .SelectMany(r => r.ForwardMarkers(clock, TimeSpan.FromMilliseconds(configuration?.TelemetryFreshnessMs ?? 1000))).ToArray();
+
+    /// <summary>
+    /// Continuous 1.5 Hz bright/dim warning pulse; range changes do not reset its phase.
+    /// No return is ever represented as a flashing obstacle.
+    /// </summary>
+    public double ForwardObstaclePulse
+    {
+        get
+        {
+            if (!ForwardObstacles.Any(o => !o.IsStale))
+            {
+                return 0;
+            }
+
+            double seconds = clock.GetElapsedTime(simulationOrigin).TotalSeconds;
+            return 0.5 + 0.5 * Math.Cos(seconds * 3 * Math.PI);
+        }
+    }
+
+    /// <summary>
+    /// Range state and provenance, never a claim that the path is clear.
+    /// </summary>
+    public string ForwardRangeSummary
+    {
+        get
+        {
+            var reports = ObjectReports;
+            if (reports.Count == 0)
+            {
+                return "Object range unavailable / stale";
+            }
+
+            string origin = reports.All(r => (r.Report.ReportFlags & 2) != 0) ? "SIM · " : "";
+            var observations = ForwardObstacles;
+            int staleCount = observations.Count(o => o.IsStale);
+            string stale = staleCount > 0 ? $" · {staleCount} stale" : "";
+            string truncated = reports.Any(r => (r.Report.ReportFlags & 1) != 0) ? " · truncated" : "";
+            return observations.Count == 0
+                ? origin + (HasForwardRange ? "no reported return in view" : "range unavailable / stale") + truncated
+                : origin + $"{observations.Count} return(s) · nearest {observations.Min(o => o.DistanceMillimetres) / 1000d:0.##} m" + stale + truncated;
         }
     }
 
@@ -519,30 +715,184 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// </summary>
     public string MovementOwner => Snapshot is { StatusFresh: true, Status: var s } && s != null ? s.MovementOwner.ToString() : "Unavailable";
 
-    /// <summary>
-    /// Confirmed effective buoyancy action, progress and estimate, or unavailable.
-    /// </summary>
-    public string BuoyancyStatus => Snapshot is { StatusFresh: true, Status: var s } && s != null ? $"{s.BuoyancyAction} / {s.BuoyancyActionStatus} / estimate {s.EstimatedBuoyancy}" : "Unavailable";
+    /// <summary>Fresh status with supported control values, never inferred from silence.</summary>
+    private VehicleStatus? ConfirmedStatus => Snapshot is { StatusFresh: true, Status: { HasUnknownControlValues: false } status } ? status : null;
 
-    /// <summary>
-    /// Onboard neutral-hold progress and arming blockers from fresh status.
-    /// </summary>
-    public string Qualification => Snapshot is { StatusFresh: true, Status: var s } && s != null ? $"Neutral hold: {s.NeutralHoldProgressMs} / 1000 ms · {s.ArmingBlockers}" : "No confirmed arming qualification";
+    /// <summary>Plain-language authoritative safety state for the status overlay.</summary>
+    public string VehicleStatusLabel => ConfirmedStatus?.SafetyState switch
+    {
+        SafetyState.Disarmed => "Disarmed",
+        SafetyState.Armed => "Armed",
+        SafetyState.CommandLossFailsafe => "Stopped · input lost",
+        SafetyState.FaultFailsafe => "Stopped · vehicle fault",
+        SafetyState.EmergencyStopLatched => "Emergency stop latched",
+        _ => "Status unconfirmed"
+    };
 
-    /// <summary>
-    /// Last reported onboard control restrictions, or unknown without status.
-    /// </summary>
-    public string Restrictions => Snapshot?.Status is { } s ? s.ActiveRestrictions.ToString() : "Unknown";
+    /// <summary>Names the selected movement source without exposing protocol enum spelling.</summary>
+    public string ControlSourceLabel => "Control: " + (ConfirmedStatus?.MovementOwner switch
+    {
+        Bajols.Protocol.MovementOwner.Pc => "Ground station",
+        Bajols.Protocol.MovementOwner.FlySky => "Radio controller",
+        Bajols.Protocol.MovementOwner.Autonomy => "Onboard autonomy",
+        Bajols.Protocol.MovementOwner.None => "No source selected",
+        _ => "Unconfirmed"
+    });
 
-    /// <summary>
-    /// Most recently reported fault label, activation state and explicit severity.
-    /// </summary>
-    public string LastFault => Snapshot?.LastFault is { } f ? $"{f.FaultCode}: {(f.Active ? "ACTIVE" : "cleared")} ({f.Severity})" : "No reported fault";
+    /// <summary>Confirmed buoyancy activity and estimated tendency, distinct from the requested target.</summary>
+    public string BuoyancyStatus
+    {
+        get
+        {
+            if (ConfirmedStatus is not { } status)
+            {
+                return "Buoyancy unconfirmed";
+            }
 
-    /// <summary>
-    /// Most recent correlated command result, not proof of current state or physical completion.
-    /// </summary>
-    public string LastAction => Snapshot?.LastResult is { } r ? $"{r.OriginalMessageType}: {r.Result}" : "No command result";
+            string action = status.BuoyancyAction switch
+            {
+                BuoyancyAction.None => "Buoyancy idle",
+                BuoyancyAction.SeekNeutral => "Seeking neutral buoyancy",
+                BuoyancyAction.SeekPositive => "Seeking positive buoyancy",
+                BuoyancyAction.SeekNegative => "Seeking negative buoyancy",
+                BuoyancyAction.EmergencyEvacuation => "Emergency ballast blow",
+                _ => "Buoyancy action unavailable"
+            };
+            string estimate = status.EstimatedBuoyancy switch
+            {
+                EstimatedBuoyancy.Neutral => "estimated neutral",
+                EstimatedBuoyancy.Positive => "estimated tendency to rise",
+                EstimatedBuoyancy.Negative => "estimated tendency to sink",
+                _ => "estimate unavailable"
+            };
+            string progress = status.BuoyancyActionStatus == ActionStatus.Inactive ? "" : $" · {FriendlyValue(status.BuoyancyActionStatus)}";
+            return $"{action}{progress} · {estimate}";
+        }
+    }
+
+    /// <summary>Onboard neutral qualification progress; absent or stale status resets the display.</summary>
+    public double NeutralHoldProgress => ConfirmedStatus is { } status ? Math.Min(1000, (int)status.NeutralHoldProgressMs) : 0;
+
+    /// <summary>Neutral qualification is an arming check and is not displayed during active movement.</summary>
+    public bool ShowNeutralHold => ConfirmedStatus?.SafetyState != SafetyState.Armed;
+
+    /// <summary>Explains that the progress bar checks movement input, not actual buoyancy.</summary>
+    public string NeutralHoldLabel => ConfirmedStatus is null ? "Neutral input check unavailable" :
+        NeutralHoldProgress >= 1000 ? "Neutral input check complete" : $"Neutral input check · {NeutralHoldProgress / 10:0}%";
+
+    /// <summary>Plain-language reasons that prevent arming, without implying local authorization.</summary>
+    public string Qualification
+    {
+        get
+        {
+            if (ConfirmedStatus is not { } status)
+            {
+                return "Waiting for confirmed vehicle status";
+            }
+
+            if (status.SafetyState == SafetyState.Armed)
+            {
+                return "Movement enabled";
+            }
+
+            if (status.SafetyState == SafetyState.CommandLossFailsafe)
+            {
+                return "Restore control input, then clear failsafe";
+            }
+
+            if (status.SafetyState == SafetyState.FaultFailsafe)
+            {
+                return "Resolve the fault, then clear failsafe";
+            }
+
+            if (status.SafetyState == SafetyState.EmergencyStopLatched)
+            {
+                return "Reset emergency stop at the vehicle";
+            }
+
+            var blockers = status.ArmingBlockers;
+            if (blockers == ArmingBlockers.None)
+            {
+                return status.SafetyState == SafetyState.Armed ? "Movement enabled" : "Vehicle ready for an arm request";
+            }
+
+            var reasons = new List<string>();
+            if (blockers.HasFlag(ArmingBlockers.NoOwner))
+            {
+                reasons.Add("Select a control source");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.StaleOwner))
+            {
+                reasons.Add("Waiting for fresh control input");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.NonNeutralInput))
+            {
+                reasons.Add("Center the movement controls");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.NeutralHoldIncomplete))
+            {
+                reasons.Add("Keep controls centered for one second");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.CommandLossLatch) || blockers.HasFlag(ArmingBlockers.FaultFailsafeLatch))
+            {
+                reasons.Add("Failsafe must be cleared");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.EmergencyLatch))
+            {
+                reasons.Add("Reset emergency stop at the vehicle");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.BlockingFault))
+            {
+                reasons.Add("Resolve the vehicle fault");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.RequiredSubsystemUnavailable))
+            {
+                reasons.Add("A required system is unavailable");
+            }
+
+            if (blockers.HasFlag(ArmingBlockers.ArmActionMustReset))
+            {
+                reasons.Add("Release the arm control before retrying");
+            }
+
+            return string.Join(" · ", reasons);
+        }
+    }
+
+    /// <summary>Confirmed restrictions in operator-facing language; stale status cannot establish absence.</summary>
+    public string Restrictions => ConfirmedStatus is not { } status ? "Restrictions unconfirmed" :
+        status.ActiveRestrictions == ActiveRestrictions.None ? "No movement restrictions" :
+        "Movement limits: " + string.Join(" · ", new[]
+        {
+            status.ActiveRestrictions.HasFlag(ActiveRestrictions.DepthLimitActive) ? "depth limit reached" : null,
+            status.ActiveRestrictions.HasFlag(ActiveRestrictions.DepthUnavailable) ? "depth unavailable" : null,
+            status.ActiveRestrictions.HasFlag(ActiveRestrictions.DownwardControlInhibited) ? "downward movement blocked" : null
+        }.Where(value => value is not null));
+
+    /// <summary>Historical fault report in readable wording, independent of current link freshness.</summary>
+    public string LastFault => Snapshot?.LastFault is { } fault ? $"Last fault: {FriendlyValue(fault.FaultCode)} · {(fault.Active ? "active" : "cleared")} · {FriendlyValue(fault.Severity)}" : "No faults reported";
+
+    /// <summary>Historical command outcome, not proof of current state or physical completion.</summary>
+    public string LastAction => Snapshot?.LastResult is { } result ? $"Last action: {FriendlyValue(result.OriginalMessageType)} · {FriendlyValue(result.Result)}" : "No action results yet";
+
+    /// <summary>Separates known protocol enum words for readable diagnostics without treating unknown values as success.</summary>
+    private static string FriendlyValue<T>(T value) where T : struct, Enum
+    {
+        if (!Enum.IsDefined(value))
+        {
+            return "unrecognized value";
+        }
+
+        string name = value.ToString();
+        return string.Concat(name.Select((letter, index) => index > 0 && char.IsUpper(letter) ? " " + char.ToLowerInvariant(letter) : char.ToLowerInvariant(letter).ToString()));
+    }
 
     /// <summary>
     /// Status banner combining configuration/connection errors and link provenance.
@@ -594,14 +944,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     }
 
     /// <summary>
-    /// Whether fresh confirmed heading and pitch are available for both silhouettes.
+    /// Whether fresh confirmed heading and pitch are available for the 3D pose.
     /// </summary>
     public bool HasAttitude => Angle(MeasurementId.Pitch) != null && Angle(MeasurementId.Heading) != null;
 
     /// <summary>
     /// Clockwise screen rotation derived from nose-up-positive pitch telemetry.
     /// </summary>
-    public double PitchScreenAngle => -(Angle(MeasurementId.Pitch) ?? 0);
+    public double PitchScreenAngle => -PitchAngle;
+
+    /// <summary>
+    /// Measured nose-up-positive pitch used to rotate the 3D vehicle model.
+    /// </summary>
+    public double PitchAngle => Angle(MeasurementId.Pitch) ?? 0;
 
     /// <summary>
     /// Continuous heading rotation following the shortest path across north.
@@ -636,19 +991,79 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     public string PitchLabel => Angle(MeasurementId.Pitch) is double pitch ? $"{Math.Abs(pitch):0.0}° nose {(pitch >= 0 ? "up" : "down")}" : "Pitch unavailable";
 
     /// <summary>
-    /// Attitude provenance or unconfirmed-state label displayed beside the silhouettes.
+    /// Attitude provenance or unconfirmed-state label displayed above the 3D view.
     /// </summary>
     public string AttitudeSource => !HasAttitude ? "ATTITUDE UNAVAILABLE / UNCONFIRMED" : IsSimulation ? "SIMULATED ATTITUDE · ILLUSTRATIVE MOTION" : "VEHICLE ATTITUDE";
 
     /// <summary>
     /// Fresh depth formatted in metres with provenance, or an unavailable placeholder.
     /// </summary>
-    public string Depth => Measurement(MeasurementId.Depth, 1000, "m");
+    public string Depth => DepthMetres is not null ? Measurement(MeasurementId.Depth, 1000, "m") : "— m";
+
+    /// <summary>Fresh nonnegative depth, or null when measurement validity cannot be established.</summary>
+    public double? DepthMetres
+    {
+        get
+        {
+            var snapshot = Snapshot;
+            if (snapshot is not { SessionEstablished: true, StatusFresh: true } ||
+                !snapshot.Measurements.TryGetValue(MeasurementId.Depth, out var sample) ||
+                sample.Record.Value < 0 || sample.Record.SampleAgeMs == ushort.MaxValue ||
+                !sample.Record.HasKnownQualityFlags ||
+                (sample.Record.QualityFlags & (TelemetryQuality.Valid | TelemetryQuality.SensorFault)) != TelemetryQuality.Valid)
+            {
+                return null;
+            }
+
+            double elapsed = clock.GetElapsedTime(sample.ReceivedAt).TotalMilliseconds;
+            return elapsed >= 0 && elapsed + sample.Record.SampleAgeMs < (configuration?.TelemetryFreshnessMs ?? 1000)
+                ? sample.Record.Value / 1000d : null;
+        }
+    }
+
+    /// <summary>Whether a current depth marker can be shown rather than implying surface on data loss.</summary>
+    public bool HasDepth => DepthMetres is not null;
+
+    /// <summary>Marker top within the 48-pixel surface-to-4.5-metre scale, clamped beyond the limit.</summary>
+    public double DepthIndicatorOffset => 6 + Math.Clamp((DepthMetres ?? 0) / 4.5, 0, 1) * 48;
+
+    /// <summary>Depth readout and marker colour, warming from teal through amber to red at 4.5 metres.</summary>
+    public IBrush DepthWarningBrush
+    {
+        get
+        {
+            if (DepthMetres is not double depth)
+            {
+                return new SolidColorBrush(Color.Parse("#A9BAC8"));
+            }
+
+            double fraction = Math.Clamp(depth / 4.5, 0, 1);
+            Color start = Color.Parse(fraction <= 0.7 ? "#69CCC4" : "#F2C879");
+            Color end = Color.Parse(fraction <= 0.7 ? "#F2C879" : "#F14959");
+            double mix = fraction <= 0.7 ? fraction / 0.7 : (fraction - 0.7) / 0.3;
+            return new SolidColorBrush(Color.FromRgb(
+                (byte)Math.Round(start.R + (end.R - start.R) * mix),
+                (byte)Math.Round(start.G + (end.G - start.G) * mix),
+                (byte)Math.Round(start.B + (end.B - start.B) * mix)));
+        }
+    }
 
     /// <summary>
-    /// Fresh magnetic heading formatted in degrees with provenance, or an unavailable placeholder.
+    /// Fresh magnetic heading with degrees, nearest sixteen-point compass direction and provenance.
     /// </summary>
-    public string Heading => Measurement(MeasurementId.Heading, 100, "°");
+    public string Heading => Angle(MeasurementId.Heading) is double heading
+        ? Measurement(MeasurementId.Heading, 100, $"° {CompassPoints[(int)Math.Floor((heading + 11.25) / 22.5) % 16]}")
+        : "— °";
+
+    /// <summary>Prominent nearest sixteen-point compass direction, or an unavailable placeholder.</summary>
+    public string HeadingDirection => Angle(MeasurementId.Heading) is double heading
+        ? CompassPoints[(int)Math.Floor((heading + 11.25) / 22.5) % 16]
+        : "—";
+
+    /// <summary>Secondary heading in degrees with provenance, or an unavailable placeholder.</summary>
+    public string HeadingDegreesLabel => Angle(MeasurementId.Heading) is not null
+        ? Measurement(MeasurementId.Heading, 100, "°")
+        : "— °";
 
     /// <summary>
     /// Fresh supply voltage formatted in volts with provenance, or an unavailable placeholder.
@@ -692,7 +1107,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
             LocalResetCommand,
             DepthLimitCommand,
             DepthSensorFaultCommand,
-            RestoreDepthCommand
+            RestoreDepthCommand,
+            PlaceObjectCommand,
+            ClearObjectsCommand
         }
 
         )
