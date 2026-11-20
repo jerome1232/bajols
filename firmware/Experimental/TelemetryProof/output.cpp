@@ -20,7 +20,7 @@
 
 #include "output.h"
 
-namespace data
+namespace Data
 {
   Data::Output::Begin()
   {
