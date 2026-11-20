@@ -143,7 +143,13 @@ Schema 1 selects `transport: simulator` or `transport: serial`. Serial also requ
 an explicit port (such as `/dev/ttyACM0` or `COM3`) and the actual provisioned
 32-hex-character vehicle ID; the simulator ID cannot be used for serial. Baud is
 fixed at the BCP v1 115200/8N1 profile. This adapter requires BCP firmware/another BCP
-peer; the existing experimental Arduino sketch does not implement BCP.
+peer. The default `TelemetryProof` build now integrates BCP without actuator
+support; it requires verified writable startup before establishing a session.
+See [vehicle integration](../firmware/Experimental/TelemetryProof/README.md) and
+[the Mega/ESP32 build and provisioning guide](../firmware/BUILD_AND_PROVISION.md).
+Its default unavailable instrument reports are not live sensor readings; an
+optional firmware demo explicitly marks synthetic readings. Missing movement
+capabilities keep Arm unavailable even when the serial link is confirmed.
 
 Unknown/duplicate YAML keys, oversized files, unsupported schemas, missing/invalid
 identity, nonfinite input settings and out-of-range timeouts/buffers are rejected.
@@ -226,3 +232,12 @@ perspective projection and edge clamping. This enlarged visual scale is independ
 of the six-metre reporting/display limit and distance-based warning prominence.
 Distant markers can reach the view edge; their labels retain reported distance.
 Neither the model dimensions nor marker spacing establish calibrated hull clearance.
+
+## Planned buoy radio link
+
+The selected initial radio is RFM69HCW at 915 MHz, with a buoy and a wired
+submarine tether. See [the arrangement and recommended modules](../Documentation/Wiring/RF_BUOY_TETHER.md)
+for the shore USB bridge, buoy SPI/UART bridge, differential tether interfaces and
+RF packet-size constraints. These are planned transport additions, not currently
+implemented ground-station radio support. Vehicle identity and command authority
+remain on the submarine across the bridged link.

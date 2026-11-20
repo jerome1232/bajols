@@ -1,27 +1,26 @@
-![Arduino Lint](https://github.com/jerome1232/bajols/actions/workflows/check-arduino.yml/badge.svg) ![Arduino Compile](https://github.com/jerome1232/bajols/actions/workflows/compile-sketches.yml/badge.svg) [![Ground Station Build](https://github.com/jerome1232/bajols/actions/workflows/build-groundstation.yml/badge.svg)](https://github.com/jerome1232/bajols/actions/workflows/build-groundstation.yml) [![Firmware Protocol Tests](https://github.com/jerome1232/bajols/actions/workflows/test-firmware-protocol.yml/badge.svg)](https://github.com/jerome1232/bajols/actions/workflows/test-firmware-protocol.yml)
+[![ESP32 Compile](https://github.com/jerome1232/bajols/actions/workflows/compile-esp32.yml/badge.svg)](https://github.com/jerome1232/bajols/actions/workflows/compile-esp32.yml) ![Arduino Lint](https://github.com/jerome1232/bajols/actions/workflows/check-arduino.yml/badge.svg) ![Arduino Compile](https://github.com/jerome1232/bajols/actions/workflows/compile-sketches.yml/badge.svg) [![Ground Station Build](https://github.com/jerome1232/bajols/actions/workflows/build-groundstation.yml/badge.svg)](https://github.com/jerome1232/bajols/actions/workflows/build-groundstation.yml) [![Firmware Protocol Tests](https://github.com/jerome1232/bajols/actions/workflows/test-firmware-protocol.yml/badge.svg)](https://github.com/jerome1232/bajols/actions/workflows/test-firmware-protocol.yml)
 
 # bajols
 Remotely controlled submarine with planned semi-autonomous operation.
 
-The repository includes experimental Arduino firmware, a portable BCP protocol
+The repository includes experimental Mega/ESP32 Arduino firmware, a portable BCP protocol
 library, and a C# desktop ground station with an encoded simulated peer. The
-`TelemetryProof` sketch fakes sensor data to demonstrate telemetry streaming to
-a FS-i6X controller and reading its inputs. BCP actuator integration is deferred.
+[`TelemetryProof` sketch](firmware/Experimental/TelemetryProof/README.md) now defaults
+to actuator-disabled BCP integration. Its original FlySky control/telemetry
+experiment is retained behind `BAJOLS_ENABLE_LEGACY_CONTROL`. BCP actuator
+integration is deferred. The [firmware build and provisioning guide](firmware/BUILD_AND_PROVISION.md)
+covers Mega EEPROM and ESP32 NVS, including full dump/readback verification.
 
-Currently it will react to throttle (left joystick) and in response will
-change rpms. It will also react to swC switch, while in the up position it will
-decrease pressure, in middle postion not change pressure, and when in down postion
-increase pressure. You should see changes to altitute as pressure changes.
-
-It constantly changes heading (shown as '5' sensor on flysky remote)
-Currently heading is 0..360 degrees.
+The legacy FlySky experiment reacts to throttle/direction and ballast switches,
+streams simulated instrument values to the FS-i6X controller, and changes a fake
+heading. It directly drives hardware and is not enabled in the default BCP build.
 
 ## Repository layout
 
 ```text
 firmware/
   Experimental/
-    TelemetryProof/    # Existing Arduino sketch and supporting source files
+    TelemetryProof/    # Default BCP monitoring/telemetry; explicit legacy control option
     BcpCodecCheck/      # Isolated BCP codec compile check; no actuator setup
     BcpSessionCheck/    # Session policy compile check; no hardware initialization
     BcpSerialCheck/     # Bounded USB-serial endpoint; identity remains unverified
@@ -37,9 +36,10 @@ protocol/              # BCP specification, conformance plan and shared wire vec
 groundstation/         # .NET/Avalonia ground station, simulator and tests
 ```
 
-The firmware was moved from `src/` without changing its behavior. The Arduino
-sketch remains experimental and does not implement BCP. The C# protocol codec, simulated peer and desktop ground station are implemented
-under `groundstation/`.
+The original firmware was moved from `src/`; its direct-control path is now an
+explicit legacy build option. The default vehicle sketch integrates BCP startup,
+serial and telemetry with actuator outputs disabled. The C# codec, simulated peer
+and desktop ground station are implemented under `groundstation/`.
 The [BCP v1 discussion draft](protocol/BCP_V1_DRAFT.md) records agreed control and
 safety behavior separately from proposed wire details and open decisions.
 The [ground station](groundstation/README.md) separates protocol, communication,
@@ -54,7 +54,11 @@ grey/white. See the ground-station guide for input qualification, object placeme
 and the limits of this schematic display.
 
 ## Compile
-Libraries needed to compile this sketch - If not included in repo it's installable from arudino IDE.
+
+The default actuator-disabled build needs the matching Arduino board core and
+local `BajolsProtocol` library. See [Build and provision](firmware/BUILD_AND_PROVISION.md)
+for pinned Mega/ESP32 toolchains, compile/upload commands and persistent identity.
+The libraries below are for the optional **Mega legacy control** experiment.
 
 |Library|Location in Repo|Web link|Version|
 |-------|----------------|-------|-------|
@@ -65,15 +69,17 @@ Libraries needed to compile this sketch - If not included in repo it's installab
 |Adafruit_PWM-Servo-Driver|-|[Servo-Driver](https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library)|3.0.2
 
 Open [TelemetryProof.ino](firmware/Experimental/TelemetryProof/TelemetryProof.ino)
-in the Arduino IDE and select Arduino Mega 2560. Compile CI and Arduino Lint both
+in the Arduino IDE and select Arduino Mega 2560, or use the documented ESP32 Dev
+Module configuration. Mega compile CI and Arduino Lint both
 target `firmware/Experimental/TelemetryProof`; compile CI also builds the isolated
 `BcpCodecCheck`, `BcpSessionCheck`, `BcpSerialCheck`, `BcpStorageCheck`, `BcpEepromCheck` and `BcpMonitor` sketches with the local
-`BajolsProtocol` library.
+`BajolsProtocol` library. The separate ESP32 workflow builds the default and
+demo-writable vehicle paths plus the portable protocol/monitoring fixtures.
 
 The [portable firmware protocol library](firmware/Libraries/BajolsProtocol/README.md)
 contains the BCP codec, a session/authorization manager and a bounded serial endpoint.
-It is not yet
-connected to the vehicle control loop. An experimental identity/emergency journal
+It is integrated into the default vehicle sketch for actuator-disabled command
+handling and telemetry; movement ownership and actuator application remain deferred. An experimental identity/emergency journal
 models the [storage policy](protocol/FIRMWARE_STORAGE_PROPOSAL.md) in RAM.
 The Mega EEPROM adapter and persistence coordinator are implemented; supplied
 sketches default to EEPROM writes disabled and never provision identity. The
@@ -83,5 +89,10 @@ explicit write-enabled build configuration. Run protocol, stateful, transport
 and power-loss tests with `python3 firmware/tests/bcp/run_native_tests.py`.
 
 ## Wiring
+
+The [RF buoy and tether guide](Documentation/Wiring/RF_BUOY_TETHER.md) shows the
+planned RFM69HCW shore/buoy bridges, full-duplex CAT6 tether recommendation, module
+candidates and transport work still required.
+
 To wire reciever see this diagram
 ![](/Documentation/Wiring/FS-IA6B_reciever_wireing.png)
