@@ -121,6 +121,11 @@ class SessionManager {
   // Drivers own acquisition counters, calibrated geometry and publication rate.
   bool PublishObjects(const ObjectReport& report, uint32_t now,
                       PacketSink& sink);
+  // Validates trusted instrument records against advertised telemetry support,
+  // assigning the established session and next packet sequence. No control
+  // authority.
+  bool PublishTelemetry(const Telemetry& telemetry, uint32_t now,
+                        PacketSink& sink);
   // Revokes pending/current PC sessions on a known disconnect or cancellation.
   // Active PC movement enters command-loss failsafe; local ownership is
   // retained.

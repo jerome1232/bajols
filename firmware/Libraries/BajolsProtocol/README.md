@@ -5,7 +5,9 @@ using the draft 0.9 [shared wire vectors](../../../protocol/test-vectors/wire-v1
 The stateless codec handles syntax only. The separate `BajolsSession.h` manager
 implements session and authorization policy; neither component drives actuators.
 Successful decoding never authorizes a command.
-The existing `TelemetryProof` sketch does not use this library yet.
+The default [`TelemetryProof` sketch](../../Experimental/TelemetryProof/README.md)
+now composes this library for actuator-disabled BCP startup, serial and telemetry;
+its legacy direct-control path is an explicit build option.
 
 The `bajols::bcp` namespace provides raw `Frame` and typed `Packet` encode/decode
 functions, CRC-16/CCITT-FALSE, and a byte-at-a-time `StreamDecoder`. Include
@@ -365,3 +367,39 @@ The bounded queue coalesces unsent snapshots by session and sensor ID; a success
 publication is not a delivery acknowledgement. Drivers own acquisition counters,
 calibration, sample age, bounded source scheduling and link-budget enforcement.
 No experimental hardware sketch advertises object support until a driver exists.
+
+## Trusted telemetry publication
+
+`SessionManager::PublishTelemetry` and `SerialEndpoint::PublishTelemetry` validate
+records against the session's advertised instrument mask and assign session/packet
+sequences. They grant no movement permission. `MonitoringRuntime` accepts an
+optional telemetry mask (zero by default), retaining its no-actuator profile.
+`SetTelemetry` replaces a bounded acquired snapshot. Runtime publication at up to
+5 Hz accumulates onboard acquisition age, preserves unknown age and never makes
+an old sample fresh. No sensor values are inferred from movement commands.
+
+The existing BcpMonitor keeps its zero-sensor default. The vehicle sketch advertises
+depth/supply/heading/pitch report paths with unavailable quality until a trusted
+driver or explicitly simulated demo supplies readings. Both retain verified boot,
+fixed storage and disabled actuator support.
+
+## Board storage portability
+
+`BajolsBoardStorage.h` selects native ATmega2560 EEPROM or the ESP32 dedicated-NVS
+adapter, with explicit initialization and unchanged BCP journal records. ESP32
+uses logical base zero and the supplied 4 MB partition map; physical offset is
+not an EEPROM address. Default ESP32 builds do not initialize dedicated NVS, since
+recovery may write flash. All writable builds still require deliberate opt-in.
+
+`RecordJournalStorage` is a journal-specific byte facade, not generic EEPROM
+emulation. Payload writes stage only under a durably invalid marker; marker
+invalidation and final commit write/read back a complete 32-byte record. ESP32's
+fixed-stack FreeRTOS worker does the NVS I/O; polling and journal reads use verified
+RAM mirrors. A paired update takes four record commits. A busy backend must outlive
+its worker; destroying it mid-commit is a programming error and fail-stops rather
+than leaving a task accessing freed memory. The compiled default/demo images still
+advertise no actuator support.
+
+See [Build and provision](../../BUILD_AND_PROVISION.md) for the platform-specific
+flash/EEPROM procedures and timing/power-loss limitations. Native record-backed
+power-cut tests do not establish NVS media-fault or hard real-time guarantees.

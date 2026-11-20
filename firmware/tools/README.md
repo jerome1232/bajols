@@ -1,5 +1,9 @@
 # Initial identity provisioning — offline tooling
 
+For complete platform setup, stable dumps, manual programming, verified readback
+and writable firmware commands, use [Build and provision](../BUILD_AND_PROVISION.md).
+The existing `provision_identity.py` path below remains Mega-specific.
+
 `provision_identity.py` prepares and checks a review bundle. It has no serial,
 programmer or device-writing capability. It does not run `avrdude`, flash firmware,
 change the ground-station configuration or obtain a dump from the board.
@@ -87,3 +91,23 @@ For the existing ground station, select `transport: serial`, the correct `port`,
 configuration. The simulator configuration is unchanged. Monitoring can connect
 but its unsupported control capabilities keep Arm unavailable. Physical USB reset,
 port permission and programmer behavior remain to be checked on actual hardware.
+
+## ESP32 dedicated NVS provisioning
+
+`provision_esp32.py` uses the same six logical records but calls Espressif's pinned
+NVS encoder to create a flash-compatible partition image. It requires an actual
+4 MB backup and an entirely erased 24 KB BCP partition at `0x310000`. It refuses
+occupied/partial targets and existing output paths; no force, erase or recovery
+mode exists. The tool never imports a serial/programmer library or writes hardware.
+
+The bundle includes `bajols-nvs.bin`, `journal.csv`, the non-flashable logical
+`journal-records.bin`, and an ID/hash review manifest. The verify command
+regenerates the expected image and checks the full readback, including every byte
+outside the BCP partition. Keep the application stopped and storage writes disabled
+until initial verification passes. Mega EEPROM HEX and ESP32 NVS binaries are not
+interchangeable. Do not point the BCP adapter at shared Wi-Fi NVS.
+
+The complete guide specifies package versions and generator selection rather than
+assuming ESP32 emulates byte EEPROM. Tests for bundle refusal/integrity use a
+fixture encoder; `nvs_generator_smoke.py` separately exercises the real Espressif
+encoder on synthetic full-flash images. Neither is physical-flash validation.

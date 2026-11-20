@@ -29,7 +29,7 @@ bcp::SessionManager manager(MakeProfile(), UnverifiedBoot());
 // Fixed receive/transmit storage and per-iteration work limits.
 bcp::SerialEndpoint endpoint(manager);
 // Dedicated USB UART; this sketch never writes debug text on it.
-bcp::ArduinoSerialPort port(Serial);
+bcp::BasicArduinoSerialPort<decltype(Serial)> port(Serial);
 // Fresh onboard time at frame and service boundaries.
 bcp::ArduinoMillisecondClock clock_source;
 // Debugger-visible state; never used to drive physical hardware.
@@ -38,7 +38,7 @@ volatile bool thrust_inhibited = true;
 
 // Initializes the protocol UART only; no receiver, EEPROM or actuator setup.
 void setup() {
-  Serial.begin(115200, SERIAL_8N1);
+  Serial.begin(115200);
   manager.SetOwner(bcp::MovementOwner::kPc, millis());
 }
 

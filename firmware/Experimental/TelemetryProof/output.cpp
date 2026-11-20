@@ -1,3 +1,4 @@
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
 #include "Arduino.h"
 /*
  * The TelemetryStreamTest application.
@@ -88,3 +89,5 @@ namespace Data
     DEBUG_PRINTLN_INFO(voltage);
   };
 }
+
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL

@@ -17,6 +17,11 @@ bool SerialEndpoint::PublishObjects(const ObjectReport& report, uint32_t now) {
   return manager_.PublishObjects(report, now, *this);
 }
 
+bool SerialEndpoint::PublishTelemetry(const Telemetry& telemetry,
+                                      uint32_t now) {
+  return manager_.PublishTelemetry(telemetry, now, *this);
+}
+
 void SerialEndpoint::Increment(uint32_t& counter) {
   if (counter != 0xFFFFFFFFUL) {
     ++counter;

@@ -1,3 +1,4 @@
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
 /*
  * The TelemetryStreamTest application.
  *
@@ -98,3 +99,4 @@ Data::Input::Read()
   DEBUG_PRINT_TRACE("\t|\t");
   DEBUG_PRINTLN_TRACE(int(swC));
 };
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL

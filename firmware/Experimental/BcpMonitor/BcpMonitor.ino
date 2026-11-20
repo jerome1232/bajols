@@ -1,5 +1,5 @@
 #include <BajolsArduinoSerial.h>
-#include <BajolsMegaEeprom.h>
+#include <BajolsBoardStorage.h>
 #include <BajolsMonitor.h>
 
 #if defined(BAJOLS_MONITOR_ENABLE_EEPROM_WRITES)
@@ -19,9 +19,10 @@
 #endif
 #endif
 
-static_assert(BAJOLS_MONITOR_EEPROM_BASE >= 0 &&
-                  BAJOLS_MONITOR_EEPROM_BASE <= 4096 - 192,
-              "EEPROM journal window must fit the Mega device.");
+static_assert(
+    BAJOLS_MONITOR_EEPROM_BASE >= 0 &&
+        BAJOLS_MONITOR_EEPROM_BASE <= bajols::bcp::kBoardStorageCapacity - 192,
+    "Journal window must fit board storage; ESP32 logical base is zero.");
 static_assert(BAJOLS_MONITOR_WRITE_TIMEOUT_MS > 0 &&
                   BAJOLS_MONITOR_WRITE_TIMEOUT_MS < 32768,
               "Write timeout must be validated and fit wrap-safe bounds.");
@@ -40,9 +41,8 @@ constexpr bool kWritesEnabled = false;
 
 // Exclusive journal window; provisioning remains a separate manual service
 // action.
-bcp::MegaEepromStorage storage(BAJOLS_MONITOR_EEPROM_BASE,
-                               bcp::IdentityJournal::kWindowSize,
-                               kWritesEnabled);
+bcp::BoardStorage storage(BAJOLS_MONITOR_EEPROM_BASE,
+                          bcp::IdentityJournal::kWindowSize, kWritesEnabled);
 // Advances verified identity only after both records are written/read back.
 bcp::IdentityJournal journal(storage, BAJOLS_MONITOR_EEPROM_BASE,
                              BAJOLS_MONITOR_WRITE_TIMEOUT_MS);
@@ -50,19 +50,19 @@ bcp::IdentityJournal journal(storage, BAJOLS_MONITOR_EEPROM_BASE,
 // owner.
 bcp::MonitoringRuntime runtime(journal);
 // USB UART dedicated exclusively to BCP binary frames.
-bcp::ArduinoSerialPort port(Serial);
+bcp::BasicArduinoSerialPort<decltype(Serial)> port(Serial);
 // Fresh wrapping onboard time throughout startup and transport service.
 bcp::ArduinoMillisecondClock clock_source;
 }  // namespace
 
 // Starts bounded boot recovery; does not provision or wait for a terminal.
 void setup() {
-  Serial.begin(115200, SERIAL_8N1);
-  runtime.Begin();
+  Serial.begin(115200);
+  if (bcp::InitializeBoardStorage(storage)) {
+    runtime.Begin();
+  }
 }
 
 // Monitoring/status/stop only; no PWM, motor, servo, receiver or ballast
 // drivers.
-void loop() {
-  runtime.Step(port, clock_source);
-}
+void loop() { runtime.Step(port, clock_source); }

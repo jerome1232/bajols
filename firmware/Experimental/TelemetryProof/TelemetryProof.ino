@@ -36,6 +36,27 @@
 // #define DEBUG_ERROR
 // #define DEBUG_INFO
 
+#if !defined(BAJOLS_ENABLE_LEGACY_CONTROL)
+
+#include "bcpVehicle.h"
+
+// Default integration path: BCP only, with no actuator or receiver setup.
+void setup() {
+  bajols::vehicle::Begin();
+}
+
+// Bounded serial, persistence and instrument publication; no blocking LED startup.
+void loop() {
+  bajols::vehicle::Step();
+}
+
+#else
+#if !defined(__AVR_ATmega2560__)
+#error "Legacy FlySky/actuator control is ATmega2560-only; use the default BCP build on ESP32."
+#endif
+// Explicit compatibility build. This legacy path directly drives real outputs
+// and does not provide BCP command arbitration.
+
 #include <IBusBM.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
@@ -191,3 +212,5 @@ void loop() {
     digitalWrite(8, LOW);
   }
 }
+
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL

@@ -1052,6 +1052,32 @@ bool SessionManager::PublishObjects(const ObjectReport& report, uint32_t now,
   return Emit(packet, current_, sink);
 }
 
+bool SessionManager::PublishTelemetry(const Telemetry& telemetry, uint32_t now,
+                                      PacketSink& sink) {
+  Advance(now);
+  if (!current_.active || telemetry.count > kMaxTelemetryRecords) {
+    return false;
+  }
+  for (uint8_t i = 0; i < telemetry.count; ++i) {
+    uint8_t id = static_cast<uint8_t>(telemetry.records[i].measurement_id);
+    if (id < 1 || id > 8 ||
+        (profile_.capabilities.supported_telemetry & (1UL << (id - 1))) == 0) {
+      return false;
+    }
+  }
+  Packet packet = {};
+  packet.header.type = MessageType::kTelemetry;
+  packet.message.telemetry = telemetry;
+  uint8_t wire[kMaxWireSize];
+  size_t written;
+  Error error;
+  if (!Encode(packet, Direction::kVehicleToPc, wire, sizeof(wire), written,
+              error)) {
+    return false;
+  }
+  return Emit(packet, current_, sink);
+}
+
 void SessionManager::Poll(uint32_t now, PacketSink& sink) {
   Advance(now);
   if (!current_.active) {

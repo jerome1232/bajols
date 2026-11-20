@@ -301,3 +301,48 @@ compass/degrees labels and the enlarged object projection at extreme attitudes.
 The guide ray ends at one metre; it is independent of the provisional six-metre
 object display limit. These are presentation checks, not sensor calibration,
 physical clearance guarantees or changes to onboard safety thresholds.
+
+### Vehicle sketch integration — actuator-disabled stage
+
+The default `TelemetryProof` path now runs the composed BCP runtime, with the old
+FlySky/actuator path behind `BAJOLS_ENABLE_LEGACY_CONTROL`. The default adapter
+initializes USB serial only; no motor, servo/PWM board, receiver or ballast setup
+runs. It reports depth/supply/heading/pitch health at up to 5 Hz, unavailable by
+default. Explicit demo builds mark synthetic values simulated. The report mask
+identifies implemented instrument report paths, not current sensor health.
+
+Native composed-runtime tests cover encoded telemetry, supported-mask and malformed
+record rejection, source age accumulation/saturation, unknown age, sequence/session
+assignment, arming rejection, disarm handling and emergency-latch retention.
+Default and demo/write-enabled Mega images have been compiled/linked, with linked
+symbols checked for absence of actuator/receiver/output-pin routines. No upload,
+provisioning, EEPROM mutation or powered hardware testing was performed.
+
+Default EEPROM writes remain disabled, so verified boot cannot complete until an
+explicit writable build uses reviewed mapping/timeout and provisioned identity.
+A connection does not enable movement: no modes, axes, ballast systems or owner
+are advertised. Physical input arbitration/reset, real sensor drivers, actuator
+adapters, ballast feedback and operational storage endurance remain open work.
+
+### ESP32 portability and persistence
+
+The actuator-disabled vehicle/monitoring path now selects Mega EEPROM or ESP32 NVS
+through `BajolsBoardStorage`. Classic ESP32 Dev Module builds use the supplied 4 MB
+partition map and a dedicated 24 KB BCP partition, logical base zero, namespace
+`journal`, six fixed record blobs. Default ESP32 builds refuse NVS initialization;
+explicit writable opt-in is required because recovery may mutate flash.
+
+The portable `RecordJournalStorage` facade preserves durable invalidation/final
+marker boundaries while buffering payload bytes. Native tests cover 450 boot
+power-cut boundaries, 220 clear boundaries, strict read-only/bounds checks and
+mismatching record readback. Paired boot updates take four record commits. These
+model record completion/corruption and journal policy, not NVS's internal flash
+recovery or physical endurance.
+
+Offline ESP32 tests reject occupied/short sources, changed manifests/encoders,
+incorrect initial records, modified partitions and collateral full-flash changes.
+A separate smoke test uses the pinned official NVS encoder and supplied partition
+tables. The ESP32 workflow compiles read-only/demo-writable vehicle builds plus
+portable fixtures. Mega coverage and existing journal/vector tests remain.
+No device was flashed or erased, and no real persistent identity was provisioned.
+The end-to-end manual process is in [Build and provision](../firmware/BUILD_AND_PROVISION.md).

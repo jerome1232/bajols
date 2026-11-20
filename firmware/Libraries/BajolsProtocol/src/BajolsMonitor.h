@@ -8,13 +8,15 @@ namespace bajols {
 namespace bcp {
 
 // Actuator-free startup/runtime composition, not an operational vehicle
-// controller. No movement owner, sensors, modes, axes or ballast systems are
-// advertised.
+// controller. No movement owner, modes, axes or ballast systems are advertised.
+// Trusted adapters can supply bounded telemetry with explicit
+// quality/provenance.
 class MonitoringRuntime {
  public:
   // References the exclusive journal; constructs no manager before verified
   // boot.
-  explicit MonitoringRuntime(IdentityJournal& journal);
+  explicit MonitoringRuntime(IdentityJournal& journal,
+                             uint32_t telemetry_mask = 0);
   // Destroys the explicitly constructed fixed-storage context if startup
   // finished.
   ~MonitoringRuntime();
@@ -28,6 +30,10 @@ class MonitoringRuntime {
   // Advances one startup byte or bounded serial/persistence work after startup.
   // No actuator output API exists in this monitoring-only composition.
   void Step(BytePort& port, MillisecondClock& clock);
+  // Replaces the latest acquired instrument snapshot; sample age is relative to
+  // now, not the next transmission. Invalid records never replace retained
+  // data.
+  bool SetTelemetry(const Telemetry& telemetry, uint32_t now);
   // Cancels a known PC transport connection without clearing any safety latch.
   void Disconnect(uint32_t now);
   // Returns authoritative status only after a verified boot constructed the
@@ -37,9 +43,8 @@ class MonitoringRuntime {
   bool Failed() const;
 
  private:
-  // Builds an immutable profile with no implemented actuation/sensor
-  // capabilities.
-  static ControllerProfile Profile();
+  // Builds a non-actuating profile with the requested instrument-report mask.
+  static ControllerProfile Profile(uint32_t telemetry_mask);
   // Stable references are initialized together only after journal verification.
   struct Context {
     // Independent authoritative safety/session state using the verified boot.
@@ -49,7 +54,8 @@ class MonitoringRuntime {
     // Runtime journal submission/acknowledgement owner referencing manager.
     PersistenceCoordinator persistence;
     // Constructs all runtime references after successful boot evidence exists.
-    Context(IdentityJournal& journal, const VerifiedBootState& boot);
+    Context(IdentityJournal& journal, const VerifiedBootState& boot,
+            uint32_t telemetry_mask);
   };
   // Union alignment is determined by Context; placement construction uses no
   // heap.
@@ -74,6 +80,16 @@ class MonitoringRuntime {
   bool ready_;
   // Latched startup failure; no automatic service recovery or retry.
   bool failed_;
+  // Immutable implemented instrument-reporting mask; unknown bits fail startup.
+  uint32_t telemetry_mask_;
+  // Latest instrument snapshot, never refreshed merely by a transmission.
+  Telemetry telemetry_;
+  // Whether a validated snapshot has been submitted by the instrument adapter.
+  bool has_telemetry_;
+  // Acquisition timestamp associated with telemetry_.
+  uint32_t telemetry_at_;
+  // Last publication attempt, bounded to one per 200 milliseconds.
+  uint32_t telemetry_sent_at_;
 };
 }  // namespace bcp
 }  // namespace bajols

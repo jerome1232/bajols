@@ -1,3 +1,4 @@
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
 #include "HardwareSerial.h"
 /*
  * The TelemetryStreamTest application.
@@ -151,3 +152,4 @@ void Motor::HBridgePWMEnc::stop()
   HBridgePWM::stop();
   rpm = 0;
 }
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL

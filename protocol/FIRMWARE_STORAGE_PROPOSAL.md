@@ -1,11 +1,12 @@
 # Firmware identity and emergency journal — implementation proposal
 
 Status: implementation direction approved 2026-11-17; portable journal, Mega
-EEPROM adapter and runtime coordinator implemented. Physical addresses, wear
-leveling, provisioning/service procedures and powered-hardware validation remain
-open. The file retains its proposal name for existing links.
-BCP draft 0.8's identity and emergency behavior remains authoritative; this adds
-no wire fields. The existing vehicle and USB-serial sketches do not write storage.
+EEPROM adapter, ESP32 NVS record adapter and runtime coordinator implemented.
+Development provisioning/compile procedures are documented; operational wear,
+service recovery and powered-hardware validation remain open. The file retains its proposal name for existing links.
+BCP draft 0.9's identity and emergency behavior remains authoritative; this adds
+no wire fields. Default builds refuse persistent writes; explicitly enabled
+runtime builds advance the boot journal and may persist emergency state.
 
 ## Proposed recovery policy
 
@@ -144,3 +145,26 @@ explicit base matching the image and a validated byte timeout. After a separatel
 authorized upload of such a build, boot and emergency writes would be real. No
 programming or upload was performed during this implementation. Endurance/wear
 leveling, independent emergency hardware and operational control remain pending.
+
+## ESP32 NVS record backend
+
+The development ESP32 target uses a dedicated `bajols` NVS partition at `0x310000`,
+size `0x6000`, with namespace `journal` and keys `r0` through `r5`. Each key holds
+one of the same six 32-byte records. The logical ByteStorage window is base zero,
+192 bytes. Default read-only builds refuse dedicated NVS initialization because
+NVS recovery can write flash. There is no automatic NVS erase or fresh identity
+creation on errors; missing/wrong-length blobs fail startup.
+
+The portable record facade commits invalidation before staging payload and commits
+all staged bytes with the final marker. Each committed record is read back before
+Ready is published. Four asynchronous record transactions implement a paired
+journal update, preserving the rule that both records must validate and match.
+The main journal still performs at most one logical byte operation per service
+call; ESP32's physical operation is a worker-owned record/NVS transaction, not a
+single EEPROM byte. Flash-cache stalls, garbage collection and physical fault
+recovery are separate real-time/durability validation requirements.
+
+The offline ESP32 tool requires a full 4 MB source dump with an erased BCP
+partition, uses Espressif's encoder and verifies regenerated content plus unchanged
+outside-partition bytes from a complete readback. It does not program hardware or
+reset used journals. See the complete [build/provisioning guide](../firmware/BUILD_AND_PROVISION.md).

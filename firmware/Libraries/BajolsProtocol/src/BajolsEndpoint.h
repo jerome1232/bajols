@@ -67,6 +67,9 @@ class SerialEndpoint : private PacketSink {
   // Offers a trusted source snapshot through session validation and the bounded
   // queue. True means publication accepted, not delivery acknowledgement.
   bool PublishObjects(const ObjectReport& report, uint32_t now);
+  // Offers trusted instrument data through session checks and the bounded
+  // queue. True means publication accepted, not a delivery acknowledgement.
+  bool PublishTelemetry(const Telemetry& telemetry, uint32_t now);
   // Cancels all buffered input/output and revokes PC authorization. If output
   // was partial, the next write first emits a delimiter to restore framing.
   // Call for a known disconnect/cancel; it never resets local-owner control.

@@ -29,13 +29,9 @@ class Memory : public bcp::ByteStorage {
   // Whether this fixture models deliberate runtime write permission.
   bool writable = true;
   // Creates the same fresh image prepared by the provisioning utility.
-  Memory() {
-    memcpy(bytes, kProvisionedImage, sizeof(bytes));
-  }
+  Memory() { memcpy(bytes, kProvisionedImage, sizeof(bytes)); }
   // Returns the fixture's logical capacity.
-  uint32_t Capacity() const override {
-    return sizeof(bytes);
-  }
+  uint32_t Capacity() const override { return sizeof(bytes); }
   // Simulated RAM bytes complete immediately.
   bcp::ByteStorageStatus Status() override {
     return bcp::ByteStorageStatus::kReady;
@@ -65,9 +61,7 @@ class Clock : public bcp::MillisecondClock {
   // Onboard time supplied explicitly by the test.
   uint32_t now = 0;
   // Returns the current instant without wall-clock dependencies.
-  uint32_t Now() override {
-    return now;
-  }
+  uint32_t Now() override { return now; }
 };
 
 // Host-only byte queue for encoded PC requests and UART responses.
@@ -87,9 +81,7 @@ class Port : public bcp::BytePort {
     return byte;
   }
   // Fixed fake UART write capacity.
-  size_t Writable() override {
-    return 64;
-  }
+  size_t Writable() override { return 64; }
   // Copies exactly the requested bounded chunk.
   size_t Write(const uint8_t* bytes, size_t length) override {
     Check(length <= 64, "bounded serial chunk");
@@ -212,6 +204,125 @@ void TestMonitoring() {
         "composed reboot never reuses boot identity");
 }
 
+// Real composed session with trusted telemetry: age survives publication and
+// reconnect, malformed/unsupported records cannot replace the latest snapshot.
+void TestTelemetryIntegration() {
+  Memory memory;
+  bcp::IdentityJournal journal(memory, 0, 10);
+  bcp::MonitoringRuntime runtime(journal, 0x35);
+  Port port;
+  Clock clock;
+  Start(runtime, memory, port, clock);
+  bcp::Telemetry telemetry = {};
+  telemetry.count = 2;
+  telemetry.records[0] = {bcp::MeasurementId::kHeading, 3, 10, 9000};
+  telemetry.records[1] = {bcp::MeasurementId::kDepth, 8, 65535, 0};
+  Check(runtime.SetTelemetry(telemetry, clock.now),
+        "trusted snapshot accepted");
+  bcp::Packet hello = {};
+  hello.header.type = bcp::MessageType::kHello;
+  hello.message.hello.requested_version = 1;
+  hello.message.hello.nonce.bytes[0] = 43;
+  Send(runtime, port, clock, hello);
+  bcp::Packet reply = Last(port, bcp::MessageType::kHelloReply);
+  bcp::Packet confirm = {};
+  confirm.header = {bcp::MessageType::kSessionConfirm, reply.header.session, 1};
+  confirm.message.session_confirm.nonce = hello.message.hello.nonce;
+  Send(runtime, port, clock, confirm);
+  bcp::Capabilities capabilities =
+      Last(port, bcp::MessageType::kCapabilities).message.capabilities;
+  Check(capabilities.supported_telemetry == 0x35 &&
+            capabilities.supported_modes == 0 &&
+            capabilities.supported_axes == 0 &&
+            capabilities.supported_systems == 0,
+        "instrument reporting never advertises actuator support");
+  clock.now += 200;
+  for (uint8_t i = 0; i < 20; ++i) {
+    runtime.Step(port, clock);
+  }
+  bcp::Packet first = Last(port, bcp::MessageType::kTelemetry);
+  Check(first.header.session.session_counter ==
+                reply.header.session.session_counter &&
+            first.message.telemetry.count == 2 &&
+            first.message.telemetry.records[0].sample_age_ms == 210 &&
+            first.message.telemetry.records[0].quality_flags == 3 &&
+            first.message.telemetry.records[1].sample_age_ms == 65535,
+        "encoded telemetry preserves acquisition age, simulated and "
+        "unavailable provenance");
+  bcp::Telemetry invalid = telemetry;
+  invalid.records[1].measurement_id = bcp::MeasurementId::kHeading;
+  Check(!runtime.SetTelemetry(invalid, clock.now), "duplicate source rejected");
+  invalid = telemetry;
+  invalid.records[0].measurement_id = bcp::MeasurementId::kPropulsionRpm;
+  Check(!runtime.SetTelemetry(invalid, clock.now),
+        "unadvertised instrument rejected");
+  invalid = telemetry;
+  invalid.records[0].quality_flags = 16;
+  Check(!runtime.SetTelemetry(invalid, clock.now), "unknown quality rejected");
+  clock.now += 200;
+  for (uint8_t i = 0; i < 20; ++i) {
+    runtime.Step(port, clock);
+  }
+  bcp::Packet second = Last(port, bcp::MessageType::kTelemetry);
+  Check(second.header.sequence > first.header.sequence &&
+            second.message.telemetry.records[0].sample_age_ms == 410,
+        "periodic publications cannot renew an old instrument acquisition");
+  clock.now += 65534;
+  for (uint8_t i = 0; i < 20; ++i) {
+    runtime.Step(port, clock);
+  }
+  Check(Last(port, bcp::MessageType::kTelemetry)
+                .message.telemetry.records[0]
+                .sample_age_ms == 65534,
+        "known age saturates without wrap");
+  clock.now += 200;
+  for (uint8_t i = 0; i < 20; ++i) {
+    runtime.Step(port, clock);
+  }
+  Check(
+      Last(port, bcp::MessageType::kTelemetry)
+              .message.telemetry.records[0]
+              .sample_age_ms == 65535,
+      "expired snapshot tombstone cannot become fresh after future clock wrap");
+  telemetry.records[0].sample_age_ms = 7;
+  Check(runtime.SetTelemetry(telemetry, 0xFFFFFFF0UL),
+        "new acquisition replaces expired snapshot");
+  clock.now = 200;
+  for (uint8_t i = 0; i < 20; ++i) {
+    runtime.Step(port, clock);
+  }
+  Check(Last(port, bcp::MessageType::kTelemetry)
+                .message.telemetry.records[0]
+                .sample_age_ms == 223,
+        "instrument acquisition age crosses onboard clock wrap");
+  bcp::ControlTicket ticket =
+      Last(port, bcp::MessageType::kControlTicket).message.control_ticket;
+  bcp::Packet request = {};
+  request.header = {bcp::MessageType::kArm, reply.header.session, 2};
+  request.message.arm = {1, ticket.ticket_id, ticket.control_generation};
+  Send(runtime, port, clock, request);
+  Check(Last(port, bcp::MessageType::kCommandResult)
+                .message.command_result.result !=
+            bcp::CommandResultCode::kAccepted,
+        "instrument-enabled runtime still cannot arm");
+  request.header.type = bcp::MessageType::kDisarm;
+  request.header.sequence = 3;
+  request.message.disarm.request_id = 2;
+  Send(runtime, port, clock, request);
+  Check(Last(port, bcp::MessageType::kCommandResult)
+                .message.command_result.result ==
+            bcp::CommandResultCode::kAccepted,
+        "monitor handles explicit disarm without clearing emergency state");
+  request.header.type = bcp::MessageType::kEmergencyStop;
+  request.header.sequence = 4;
+  request.message.emergency_stop.request_id = 3;
+  Send(runtime, port, clock, request);
+  bcp::VehicleStatus status;
+  Check(runtime.GetStatus(clock.now, status) &&
+            status.safety_state == bcp::SafetyState::kEmergencyStopLatched,
+        "remote emergency stop preserves the durable latch");
+}
+
 // Blank/corrupt/read-only startup never constructs an authorizing manager.
 void TestStartupFailures() {
   for (uint8_t failure = 0; failure < 3; ++failure) {
@@ -243,6 +354,7 @@ void TestStartupFailures() {
 int main() {
   TestMonitoring();
   TestStartupFailures();
+  TestTelemetryIntegration();
   printf(
       "PASS: offline image -> verified startup -> monitoring session; arming "
       "inhibited\n");

@@ -212,6 +212,7 @@ def main():
             "const uint8_t kProvisionedImage[] = {" +
             ",".join(str(value) for value in initial) + "};\n")
         subprocess.run([sys.executable, str(Path(__file__).with_name("provisioning_tests.py"))], check=True)
+        subprocess.run([sys.executable, str(Path(__file__).with_name("esp32_provisioning_tests.py"))], check=True)
         common = [os.environ.get("CXX", "g++"), "-std=c++11", "-Wall", "-Wextra",
                   "-Werror", "-pedantic", "-fno-exceptions", "-fno-rtti", "-g",
                   "-I" + str(source), "-I" + str(build)]
@@ -219,6 +220,7 @@ def main():
             common += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer",
                        "-fno-pie", "-no-pie"]
         suites = [
+            ("record_storage_tests", ["BajolsProtocol.cpp", "BajolsStorage.cpp", "BajolsRecordStorage.cpp"]),
             ("codec_tests", ["BajolsProtocol.cpp"]),
             ("session_tests", ["BajolsProtocol.cpp", "BajolsSession.cpp"]),
             ("endpoint_tests", ["BajolsProtocol.cpp", "BajolsSession.cpp", "BajolsEndpoint.cpp"]),
