@@ -70,6 +70,117 @@ public sealed class SimulatedVehicle
     /// </summary>
     private uint lastTelemetry;
 
+    /// <summary>Last object acquisition publication in onboard milliseconds.</summary>
+    private uint lastObjects;
+
+    /// <summary>Nonwrapping source acquisition counter retained across sessions in this boot.</summary>
+    private uint objectScan;
+
+    /// <summary>Bounded fixed world points in millimetres, independent of the camera.</summary>
+    private readonly List<(double East, double North, double Down)> placedObjects = [];
+
+    /// <summary>Simulated vehicle east position in millimetres.</summary>
+    private double eastMm;
+
+    /// <summary>Simulated vehicle north position in millimetres.</summary>
+    private double northMm;
+
+    /// <summary>Optional body-relative test return; never a physical sensor measurement.</summary>
+    private (uint Range, short Bearing)? previewReturn;
+
+    /// <summary>Stops acquisition publication for freshness and dropout tests.</summary>
+    public bool SuppressObjects
+    {
+        get;
+        set;
+    }
+
+    /// <summary>Number of placed fixed world points, bounded to thirty-two.</summary>
+    public int PlacedObjectCount => placedObjects.Count;
+
+    /// <summary>Sets or clears the synthetic body-relative test return.</summary>
+    public void SetPreviewReturn(uint? rangeMm, short bearingCdeg = 0)
+    {
+        if (rangeMm is > 6000 || bearingCdeg is < -9000 or > 9000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rangeMm));
+        }
+
+        previewReturn = rangeMm is uint range ? (range, bearingCdeg) : null;
+    }
+
+    /// <summary>Places a stationary world point at the requested current body-relative range and bearing.</summary>
+    public void PlaceObject(double rangeMm, double bearingDegrees)
+    {
+        if (!double.IsFinite(rangeMm) || rangeMm < 0 || rangeMm > 100000 ||
+            !double.IsFinite(bearingDegrees) || bearingDegrees < -180 || bearingDegrees >= 180)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rangeMm));
+        }
+
+        if (placedObjects.Count >= 32)
+        {
+            throw new InvalidOperationException("At most 32 simulated world objects can be placed.");
+        }
+
+        double bearing = bearingDegrees * Math.PI / 180;
+        double heading = HeadingDegrees * Math.PI / 180;
+        double pitch = PitchDegrees * Math.PI / 180;
+        double forwardMm = rangeMm * Math.Cos(bearing);
+        double starboardMm = rangeMm * Math.Sin(bearing);
+        double horizontal = forwardMm * Math.Cos(pitch);
+        placedObjects.Add((eastMm + horizontal * Math.Sin(heading) + starboardMm * Math.Cos(heading),
+            northMm + horizontal * Math.Cos(heading) - starboardMm * Math.Sin(heading),
+            depthMetres * 1000 - forwardMm * Math.Sin(pitch)));
+    }
+
+    /// <summary>Removes all stationary points and the optional synthetic test return.</summary>
+    public void ClearObjects()
+    {
+        placedObjects.Clear();
+        previewReturn = null;
+    }
+
+    /// <summary>Acquires the nearest four points in a provisional six-metre forward hemisphere.</summary>
+    private ObjectReport AcquireObjects()
+    {
+        var returns = new List<ObjectObservation>(33);
+        double heading = HeadingDegrees * Math.PI / 180;
+        double pitch = PitchDegrees * Math.PI / 180;
+        foreach (var point in placedObjects)
+        {
+            double east = point.East - eastMm;
+            double north = point.North - northMm;
+            double down = point.Down - depthMetres * 1000;
+            double horizontal = east * Math.Sin(heading) + north * Math.Cos(heading);
+            double starboard = east * Math.Cos(heading) - north * Math.Sin(heading);
+            double forwardMm = horizontal * Math.Cos(pitch) - down * Math.Sin(pitch);
+            double bodyDown = horizontal * Math.Sin(pitch) + down * Math.Cos(pitch);
+            double range = Math.Sqrt(forwardMm * forwardMm + starboard * starboard + bodyDown * bodyDown);
+            if (range <= 6000.000001 && forwardMm >= -0.000001)
+            {
+                short bearing = (short)Math.Round(Math.Atan2(starboard, forwardMm) * 18000 / Math.PI);
+                short elevation = (short)Math.Round(Math.Atan2(-bodyDown, Math.Sqrt(forwardMm * forwardMm + starboard * starboard)) * 18000 / Math.PI);
+                returns.Add(new(1, (uint)Math.Min(6000, Math.Round(range)), (uint)Math.Min(6000, Math.Round(range)), bearing, elevation, 0, 0, 0, TelemetryQuality.Valid | TelemetryQuality.Simulated));
+            }
+        }
+
+        if (previewReturn is { } preview)
+        {
+            returns.Add(new(1, preview.Range, preview.Range, preview.Bearing, 0, 0, 0, 0, TelemetryQuality.Valid | TelemetryQuality.Simulated));
+        }
+
+        if (objectScan >= uint.MaxValue - 1)
+        {
+            objectScan = uint.MaxValue;
+            SuppressObjects = true;
+            return new(1, 1, objectScan, 0, 0, 2, Array.Empty<ObjectObservation>());
+        }
+
+        var nearest = returns.OrderBy(r => r.SensorRangeMm).Take(4).Select((r, i) => r with { ObservationId = (ushort)(i + 1) }).ToArray();
+        return new(1, 1, ++objectScan, 0, 1, (byte)(2 | (returns.Count > 4 ? 1 : 0)), Array.AsReadOnly(nearest));
+    }
+
     /// <summary>
     /// Onboard time in milliseconds of the most recent diagnostic heartbeat.
     /// </summary>
@@ -482,6 +593,7 @@ public sealed class SimulatedVehicle
         }
 
         boot++;
+        objectScan = 0;
         sessionCounter = 0;
         established = pending = false;
         results.Clear();
@@ -956,6 +1068,12 @@ public sealed class SimulatedVehicle
             output.Add(Emit(new Telemetry(new TelemetryRecord[] { new(MeasurementId.Depth, depthHealthy ? quality : TelemetryQuality.SensorFault | TelemetryQuality.Simulated, 0, DepthMm), new(MeasurementId.SupplyVoltage, quality, 0, 12000), new(MeasurementId.Heading, quality, 0, (int)Math.Round(HeadingDegrees * 100) % 36000), new(MeasurementId.Pitch, quality, 0, (int)Math.Round(PitchDegrees * 100)), new(MeasurementId.PropulsionRpm, quality, 0, Math.Abs(ThrustEffort) * 3) })));
         }
 
+        if (Age(now, lastObjects) >= 200 && !SuppressObjects)
+        {
+            lastObjects = now;
+            output.Add(Emit(AcquireObjects()));
+        }
+
         if (Age(now, lastHeartbeat) >= 1000)
         {
             lastHeartbeat = now;
@@ -985,6 +1103,9 @@ public sealed class SimulatedVehicle
             _ => 0
         };
         double forwardVelocity = ThrustEffort / 1000d * 0.6;
+        double horizontalStepMm = forwardVelocity * Math.Cos(PitchDegrees * Math.PI / 180) * dt * 1000;
+        eastMm += horizontalStepMm * Math.Sin(HeadingDegrees * Math.PI / 180);
+        northMm += horizontalStepMm * Math.Cos(HeadingDegrees * Math.PI / 180);
         depthMetres = Math.Max(0, depthMetres + (-forwardVelocity * Math.Sin(PitchDegrees * Math.PI / 180) + ballastVelocity) * dt);
         int depth = (int)Math.Round(depthMetres * 1000);
         if (depth != DepthMm)
@@ -1030,7 +1151,7 @@ public sealed class SimulatedVehicle
     /// <summary>
     /// Describes only the control functions and measurements implemented by this simulated peer.
     /// </summary>
-    public static Capabilities GetCapabilities() => new(1, 1, 7, 15, 0x3d, 50, 500, 50, 500, 1000, 50);
+    public static Capabilities GetCapabilities() => new(1, 1, 7, 31, 0x3d, 50, 500, 50, 500, 1000, 50);
 
     /// <summary>
     /// Builds a current safety snapshot with independent freshness, blocker and buoyancy-action reporting.

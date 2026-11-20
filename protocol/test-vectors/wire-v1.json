@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "protocol_version": 1,
-  "baseline": "BCP_V1_DRAFT.md draft 0.7",
+  "baseline": "BCP_V1_DRAFT.md draft 0.9 (object reporting extension)",
   "scope": "Wire serialization/parser fixtures; commands require independent stateful acceptance checks.",
   "crc_reference": {
     "input_hex": "313233343536373839",
@@ -817,6 +817,631 @@
       "name": "reject_oversize_frame",
       "expected": "discard_through_delimiter",
       "wire_hex": "740101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010100"
+    },
+    {
+      "name": "objects_empty",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 11
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 0,
+        "sensor_state": 1,
+        "report_flags": 2,
+        "observations": []
+      },
+      "payload_hex": "0101010000000000010200",
+      "crc_input_hex": "0133000100000001000000140000000b0101010000000000010200",
+      "crc_value": 37499,
+      "decoded_packet_hex": "0133000100000001000000140000000b01010100000000000102007b92",
+      "wire_hex": "030133020101010201010102140101050b01010101010101030102037b9200"
+    },
+    {
+      "name": "objects_single",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 32
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 0,
+        "sensor_state": 1,
+        "report_flags": 2,
+        "observations": [
+          {
+            "observation_id": 1,
+            "sensor_range_mm": 300,
+            "vehicle_range_mm": 300,
+            "bearing_cdeg": 0,
+            "elevation_cdeg": 0,
+            "range_half_width_mm": 0,
+            "bearing_half_width_cdeg": 0,
+            "elevation_half_width_cdeg": 0,
+            "quality_flags": 3
+          }
+        ]
+      },
+      "payload_hex": "010101000000000001020101002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000020010101000000000001020101002c0100002c0100000000000000000000000003",
+      "crc_value": 27596,
+      "decoded_packet_hex": "01330001000000010000001400000020010101000000000001020101002c0100002c0100000000000000000000000003cc6b",
+      "wire_hex": "0301330201010102010101021401010520010101010101010501020101032c0101032c0101010101010101010101010403cc6b00"
+    },
+    {
+      "name": "objects_four",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 95
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 65534,
+        "sensor_state": 1,
+        "report_flags": 3,
+        "observations": [
+          {
+            "observation_id": 1,
+            "sensor_range_mm": 0,
+            "vehicle_range_mm": 0,
+            "bearing_cdeg": -18000,
+            "elevation_cdeg": -9000,
+            "range_half_width_mm": 0,
+            "bearing_half_width_cdeg": 0,
+            "elevation_half_width_cdeg": 0,
+            "quality_flags": 3
+          },
+          {
+            "observation_id": 2,
+            "sensor_range_mm": 600,
+            "vehicle_range_mm": 600,
+            "bearing_cdeg": -9000,
+            "elevation_cdeg": 9000,
+            "range_half_width_mm": 0,
+            "bearing_half_width_cdeg": 0,
+            "elevation_half_width_cdeg": 0,
+            "quality_flags": 3
+          },
+          {
+            "observation_id": 3,
+            "sensor_range_mm": 601,
+            "vehicle_range_mm": 601,
+            "bearing_cdeg": 9000,
+            "elevation_cdeg": 32767,
+            "range_half_width_mm": 65535,
+            "bearing_half_width_cdeg": 65535,
+            "elevation_half_width_cdeg": 65535,
+            "quality_flags": 3
+          },
+          {
+            "observation_id": 4,
+            "sensor_range_mm": 4294967294,
+            "vehicle_range_mm": 4294967294,
+            "bearing_cdeg": 17999,
+            "elevation_cdeg": 0,
+            "range_half_width_mm": 0,
+            "bearing_half_width_cdeg": 0,
+            "elevation_half_width_cdeg": 0,
+            "quality_flags": 3
+          }
+        ]
+      },
+      "payload_hex": "010101000000feff01030401000000000000000000b0b9d8dc0000000000000302005802000058020000d8dc282300000000000003030059020000590200002823ff7fffffffffffff030400fefffffffeffffff4f46000000000000000003",
+      "crc_input_hex": "0133000100000001000000140000005f010101000000feff01030401000000000000000000b0b9d8dc0000000000000302005802000058020000d8dc282300000000000003030059020000590200002823ff7fffffffffffff030400fefffffffeffffff4f46000000000000000003",
+      "crc_value": 29857,
+      "decoded_packet_hex": "0133000100000001000000140000005f010101000000feff01030401000000000000000000b0b9d8dc0000000000000302005802000058020000d8dc282300000000000003030059020000590200002823ff7fffffffffffff030400fefffffffeffffff4f46000000000000000003a174",
+      "wire_hex": "030133020101010201010102140101055f010101010107feff01030401010101010101010105b0b9d8dc0101010101030302035802010358020105d8dc2823010101010103030303590201035902010d2823ff7fffffffffffff03040bfefffffffeffffff4f46010101010101010403a17400"
+    },
+    {
+      "name": "objects_fault",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 11
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 0,
+        "sensor_state": 2,
+        "report_flags": 2,
+        "observations": []
+      },
+      "payload_hex": "0101010000000000020200",
+      "crc_input_hex": "0133000100000001000000140000000b0101010000000000020200",
+      "crc_value": 52011,
+      "decoded_packet_hex": "0133000100000001000000140000000b01010100000000000202002bcb",
+      "wire_hex": "030133020101010201010102140101050b01010101010101030202032bcb00"
+    },
+    {
+      "name": "objects_uncalibrated",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 11
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 65535,
+        "sensor_state": 3,
+        "report_flags": 0,
+        "observations": []
+      },
+      "payload_hex": "010101000000ffff030000",
+      "crc_input_hex": "0133000100000001000000140000000b010101000000ffff030000",
+      "crc_value": 35701,
+      "decoded_packet_hex": "0133000100000001000000140000000b010101000000ffff030000758b",
+      "wire_hex": "030133020101010201010102140101050b010101010104ffff030103758b00"
+    },
+    {
+      "name": "objects_unavailable",
+      "direction": "vehicle_to_pc",
+      "expected": "wire_valid",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 11
+      },
+      "fields": {
+        "format_revision": 1,
+        "sensor_id": 1,
+        "scan_sequence": 1,
+        "sample_age_ms": 0,
+        "sensor_state": 0,
+        "report_flags": 2,
+        "observations": []
+      },
+      "payload_hex": "0101010000000000000200",
+      "crc_input_hex": "0133000100000001000000140000000b0101010000000000000200",
+      "crc_value": 42315,
+      "decoded_packet_hex": "0133000100000001000000140000000b01010100000000000002004ba5",
+      "wire_hex": "030133020101010201010102140101050b01010101010101010202034ba500"
+    },
+    {
+      "name": "objects_invalid_revision",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "020101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035020101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 14270,
+      "decoded_packet_hex": "01330001000000010000001400000035020101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003be37",
+      "wire_hex": "0301330201010102010101021401010535020101010101010501020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403be3700"
+    },
+    {
+      "name": "objects_invalid_source_zero",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010001000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010001000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 52443,
+      "decoded_packet_hex": "01330001000000010000001400000035010001000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003dbcc",
+      "wire_hex": "0301330201010102010101021401010335010201010101010501020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403dbcc00"
+    },
+    {
+      "name": "objects_invalid_source_reserved",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "01ff01000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "0133000100000001000000140000003501ff01000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 28496,
+      "decoded_packet_hex": "0133000100000001000000140000003501ff01000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003506f",
+      "wire_hex": "030133020101010201010102140101053501ff01010101010501020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403506f00"
+    },
+    {
+      "name": "objects_invalid_state",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000004020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000004020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 855,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000004020201002c0100002c010000000000000000000000000302002c0100002c01000000000000000000000000035703",
+      "wire_hex": "0301330201010102010101021401010535010101010101010504020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403570300"
+    },
+    {
+      "name": "objects_invalid_flags",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001040201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001040201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 14290,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001040201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003d237",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501040201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403d23700"
+    },
+    {
+      "name": "objects_invalid_id_zero",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020200002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020200002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 29000,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020200002c0100002c010000000000000000000000000302002c0100002c01000000000000000000000000034871",
+      "wire_hex": "0301330201010102010101021401010535010101010101010401020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403487100"
+    },
+    {
+      "name": "objects_invalid_range_unknown",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "01010100000000000102020100ffffffff2c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "0133000100000001000000140000003501010100000000000102020100ffffffff2c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 49823,
+      "decoded_packet_hex": "0133000100000001000000140000003501010100000000000102020100ffffffff2c010000000000000000000000000302002c0100002c01000000000000000000000000039fc2",
+      "wire_hex": "030133020101010201010102140101053501010101010101050102020107ffffffff2c010101010101010101010101030302032c0101032c01010101010101010101010104039fc200"
+    },
+    {
+      "name": "objects_invalid_datum_unknown",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c010000ffffffff000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c010000ffffffff000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 32651,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c010000ffffffff000000000000000000000302002c0100002c01000000000000000000000000038b7f",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c010105ffffffff010101010101010101030302032c0101032c01010101010101010101010104038b7f00"
+    },
+    {
+      "name": "objects_invalid_bearing",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000504600000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000504600000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 56061,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000504600000000000000000302002c0100002c0100000000000000000000000003fdda",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010103504601010101010101030302032c0101032c0101010101010101010101010403fdda00"
+    },
+    {
+      "name": "objects_invalid_elevation",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000029230000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000029230000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 11145,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000029230000000000000302002c0100002c0100000000000000000000000003892b",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010329230101010101030302032c0101032c0101010101010101010101010403892b00"
+    },
+    {
+      "name": "objects_invalid_bearing_width",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000514600000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000514600000302002c0100002c0100000000000000000000000003",
+      "crc_value": 4960,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000514600000302002c0100002c01000000000000000000000000036013",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010103514601030302032c0101032c0101010101010101010101010403601300"
+    },
+    {
+      "name": "objects_invalid_elevation_width",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000029230302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000029230302002c0100002c0100000000000000000000000003",
+      "crc_value": 26614,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000029230302002c0100002c0100000000000000000000000003f667",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010101010529230302032c0101032c0101010101010101010101010403f66700"
+    },
+    {
+      "name": "objects_invalid_quality",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000000001302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000001302002c0100002c0100000000000000000000000003",
+      "crc_value": 2781,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000001302002c0100002c0100000000000000000000000003dd0a",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010101010101031302032c0101032c0101010101010101010101010403dd0a00"
+    },
+    {
+      "name": "objects_invalid_provenance",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000000000102002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000102002c0100002c0100000000000000000000000003",
+      "crc_value": 27691,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000102002c0100002c01000000000000000000000000032b6c",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010101010101030102032c0101032c01010101010101010101010104032b6c00"
+    },
+    {
+      "name": "objects_invalid_duplicate",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000000000301002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000301002c0100002c0100000000000000000000000003",
+      "crc_value": 55712,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000301002c0100002c0100000000000000000000000003a0d9",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010101010101030301032c0101032c0101010101010101010101010403a0d900"
+    },
+    {
+      "name": "objects_invalid_fault_with_objects",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000002020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000002020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 56287,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000002020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003dfdb",
+      "wire_hex": "0301330201010102010101021401010535010101010101010502020201032c0101032c010101010101010101010101030302032c0101032c0101010101010101010101010403dfdb00"
+    },
+    {
+      "name": "objects_invalid_short",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload_length",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 10
+      },
+      "fields": {},
+      "payload_hex": "01010100000000000102",
+      "crc_input_hex": "0133000100000001000000140000000a01010100000000000102",
+      "crc_value": 49768,
+      "decoded_packet_hex": "0133000100000001000000140000000a0101010000000000010268c2",
+      "wire_hex": "030133020101010201010102140101050a0101010101010105010268c200"
+    },
+    {
+      "name": "objects_invalid_trailing",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload_length",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 54
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c010000000000000000000000000300",
+      "crc_input_hex": "01330001000000010000001400000036010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c010000000000000000000000000300",
+      "crc_value": 9059,
+      "decoded_packet_hex": "01330001000000010000001400000036010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003006323",
+      "wire_hex": "0301330201010102010101021401010536010101010101010501020201032c0101032c010101010101010101010101030302032c0101032c010101010101010101010101020303632300"
+    },
+    {
+      "name": "objects_invalid_count",
+      "direction": "vehicle_to_pc",
+      "expected": "reject_payload_length",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020501002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020501002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 45580,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020501002c0100002c010000000000000000000000000302002c0100002c01000000000000000000000000030cb2",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020501032c0101032c010101010101010101010101030302032c0101032c01010101010101010101010104030cb200"
+    },
+    {
+      "name": "objects_wrong_direction",
+      "direction": "pc_to_vehicle",
+      "expected": "reject_direction",
+      "header": {
+        "version": 1,
+        "message_type": 51,
+        "flags": 0,
+        "boot_counter": 1,
+        "session_counter": 1,
+        "sequence": 20,
+        "payload_length": 53
+      },
+      "fields": {},
+      "payload_hex": "010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_input_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c0100000000000000000000000003",
+      "crc_value": 47003,
+      "decoded_packet_hex": "01330001000000010000001400000035010101000000000001020201002c0100002c010000000000000000000000000302002c0100002c01000000000000000000000000039bb7",
+      "wire_hex": "0301330201010102010101021401010535010101010101010501020201032c0101032c010101010101010101010101030302032c0101032c01010101010101010101010104039bb700"
     }
   ]
 }

@@ -181,6 +181,33 @@ public sealed class SimulatorTransport : IByteTransport
         }
     }
 
+    /// <summary>Configures the body-relative synthetic test return under the peer lock.</summary>
+    public void SetPreviewReturn(uint? rangeMm, short bearingCdeg)
+    {
+        lock (Vehicle)
+        {
+            Vehicle.SetPreviewReturn(rangeMm, bearingCdeg);
+        }
+    }
+
+    /// <summary>Places a fixed world object relative to the current simulated vehicle pose.</summary>
+    public void PlaceObject(double rangeMm, double bearingDegrees)
+    {
+        lock (Vehicle)
+        {
+            Vehicle.PlaceObject(rangeMm, bearingDegrees);
+        }
+    }
+
+    /// <summary>Clears all simulation objects under the peer lock.</summary>
+    public void ClearObjects()
+    {
+        lock (Vehicle)
+        {
+            Vehicle.ClearObjects();
+        }
+    }
+
     /// <summary>
     /// Performs the simulated local emergency reset without sending a remote reset message.
     /// </summary>

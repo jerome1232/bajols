@@ -55,6 +55,41 @@ public sealed class InputAndConfigurationTests
     }
 
     /// <summary>
+    /// Verifies range/bearing returns are distinct from no-return/fault and expire without renewal.
+    /// </summary>
+    [Fact]
+    public void Forward_ranges_require_valid_bearings_and_fresh_in_range_acquisitions()
+    {
+        var clock = new Clock();
+        TimeSpan ageLimit = TimeSpan.FromMilliseconds(1000);
+        var far = new ForwardRangeSample(ForwardRangeState.Detected, 6000, 0, 0, true);
+        var middle = new ForwardRangeSample(ForwardRangeState.Detected, 3000, -45, 0, true);
+        var near = new ForwardRangeSample(ForwardRangeState.Detected, 0, 45, 0, true);
+        Assert.Equal(0, far.Proximity(clock, ageLimit));
+        Assert.Equal(0.5, middle.Proximity(clock, ageLimit));
+        Assert.Equal(1, near.Proximity(clock, ageLimit));
+        Assert.Null(new ForwardRangeSample(ForwardRangeState.Detected, 6001, 0, 0, true).Proximity(clock, ageLimit));
+        Assert.Null(new ForwardRangeSample(ForwardRangeState.Detected, 100, 120, 0, true).Proximity(clock, ageLimit));
+        foreach (ForwardRangeState state in new[] { ForwardRangeState.NoReturn, ForwardRangeState.Unavailable, ForwardRangeState.Fault })
+        {
+            Assert.Null(new ForwardRangeSample(state, null, null, 0, true).Proximity(clock, ageLimit));
+        }
+
+        clock.Milliseconds = 999;
+        Assert.True(far.IsFresh(clock, ageLimit));
+        clock.Milliseconds = 1000;
+        Assert.False(far.IsFresh(clock, ageLimit));
+        Assert.Null(far.Proximity(clock, ageLimit));
+        clock.Milliseconds = -1;
+        Assert.False(far.IsFresh(clock, ageLimit));
+        Assert.Throws<ArgumentException>(() => new ForwardRangeSample(ForwardRangeState.Detected, -1, 0, 0, true));
+        Assert.Throws<ArgumentException>(() => new ForwardRangeSample(ForwardRangeState.Detected, 10, double.NaN, 0, true));
+        Assert.Throws<ArgumentException>(() => new ForwardRangeSample(ForwardRangeState.Detected, 10, 180, 0, true));
+        Assert.Throws<ArgumentException>(() => new ForwardRangeSample(ForwardRangeState.Detected, 10, null, 0, true));
+        Assert.Throws<ArgumentException>(() => new ForwardRangeSample(ForwardRangeState.NoReturn, 10, 0, 0, true));
+    }
+
+    /// <summary>
     /// Verifies invalid yaml and unsafe values are rejected.
     /// </summary>
     [Theory]

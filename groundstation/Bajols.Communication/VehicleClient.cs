@@ -25,7 +25,15 @@ public sealed record ReceivedMeasurement(TelemetryRecord Record, long ReceivedAt
 /// <param name="LastResult">Latest correlated discrete-request result; historical acceptance does not enable control.</param>
 /// <param name="LastFault">Latest reported fault event, when available.</param>
 /// <param name="Error">Latest connection or cleanup error retained for display.</param>
-public sealed record ClientSnapshot(ConnectionState Connection, bool SessionEstablished, bool StatusFresh, VehicleStatus? Status, Capabilities? Capabilities, bool CompatibleCapabilities, IReadOnlyDictionary<MeasurementId, ReceivedMeasurement> Measurements, CommandResult? LastResult, Fault? LastFault, string? Error);
+public sealed record ClientSnapshot(ConnectionState Connection, bool SessionEstablished, bool StatusFresh, VehicleStatus? Status, Capabilities? Capabilities, bool CompatibleCapabilities, IReadOnlyDictionary<MeasurementId, ReceivedMeasurement> Measurements, CommandResult? LastResult, Fault? LastFault, string? Error)
+{
+    /// <summary>Latest complete snapshots for at most sixteen sources; age must be checked before display.</summary>
+    public IReadOnlyDictionary<byte, ReceivedObjectReport> ObjectReports
+    {
+        get;
+        init;
+    } = new ReadOnlyDictionary<byte, ReceivedObjectReport>(new Dictionary<byte, ReceivedObjectReport>());
+}
 
 /// <summary>One connection, explicit handshake, no auto-reconnect or arm. No transmit queue of old intent.</summary>
 /// <param name="transport">Bounded byte stream owned by this single connection.</param>
@@ -54,6 +62,9 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
     /// Latest known measurements keyed by the bounded BCP measurement registry.
     /// </summary>
     private readonly Dictionary<MeasurementId, ReceivedMeasurement> measurements = [];
+
+    /// <summary>Bounded source cache; scan counters persist until the session is cleared.</summary>
+    private readonly ObjectReportCache objectReports = new();
 
     /// <summary>
     /// Cancellation source shared by connection work and background receive/transmit loops.
@@ -194,7 +205,10 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
         {
             lock (sync)
             {
-                return new(connection, established, FreshStatus(), status, capabilities, Compatible(), new ReadOnlyDictionary<MeasurementId, ReceivedMeasurement>(new Dictionary<MeasurementId, ReceivedMeasurement>(measurements)), result, lastFault, error);
+                return new(connection, established, FreshStatus(), status, capabilities, Compatible(), new ReadOnlyDictionary<MeasurementId, ReceivedMeasurement>(new Dictionary<MeasurementId, ReceivedMeasurement>(measurements)), result, lastFault, error)
+                {
+                    ObjectReports = objectReports.Snapshot
+                };
             }
         }
     }
@@ -270,6 +284,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
             established = false;
             ticket = null;
             measurements.Clear();
+            objectReports.Clear();
         }
 
         ready?.TrySetException(e);
@@ -401,6 +416,9 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
                             measurements[sample.MeasurementId] = new(sample, clock.GetTimestamp());
                         }
 
+                        break;
+                    case ObjectReport report when capabilities is { } supported && (supported.SupportedSystems & 16) != 0:
+                        objectReports.Accept(report, clock.GetTimestamp());
                         break;
                     case Fault fault:
                         lastFault = fault;
@@ -672,6 +690,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
             established = false;
             ticket = null;
             measurements.Clear();
+            objectReports.Clear();
         }
     }
 

@@ -87,6 +87,7 @@ public sealed class GoldenVectorTests
                     Assert.Null(packet);
                     var expectedError = expected switch
                     {
+                        "reject_direction" => CodecError.InvalidDirection,
                         "reject_payload" => CodecError.InvalidPayload,
                         "reject_payload_length" => CodecError.InvalidPayloadLength,
                         "reject_version" => CodecError.UnsupportedVersion,
@@ -168,6 +169,7 @@ public sealed class GoldenVectorTests
         MessageType.Capabilities => new Capabilities(U16(f, "capability_revision"), U16(f, "supported_modes"), U8(f, "supported_axes"), U16(f, "supported_systems"), U32(f, "supported_telemetry"), U16(f, "movement_interval_ms"), U16(f, "command_timeout_ms"), U16(f, "ticket_interval_ms"), U16(f, "ticket_lifetime_ms"), U16(f, "neutral_hold_ms"), U16(f, "neutral_tolerance")),
         MessageType.VehicleStatus => new VehicleStatus(U32(f, "status_revision"), U32(f, "vehicle_uptime_ms"), (SafetyState)U8(f, "safety_state"), (MovementOwner)U8(f, "movement_owner"), (ControlMode)U8(f, "control_mode"), U32(f, "control_generation"), (ArmingBlockers)U32(f, "arming_blockers"), U16(f, "neutral_hold_progress_ms"), U16(f, "movement_age_ms"), U16(f, "movement_time_remaining_ms"), (BuoyancyAction)U8(f, "buoyancy_action"), (ActionStatus)U8(f, "buoyancy_action_status"), (SafetyCause)U8(f, "safety_cause"), (EstimatedBuoyancy)U8(f, "estimated_buoyancy"), (AuthorizedBuoyancyTarget)U8(f, "authorized_normal_target"), U16(f, "buoyancy_command_time_remaining_ms"), (ActiveRestrictions)U16(f, "active_restrictions")),
         MessageType.Telemetry => new Telemetry(f.GetProperty("records").EnumerateArray().Select(r => new TelemetryRecord((MeasurementId)U8(r, "measurement_id"), (TelemetryQuality)U8(r, "quality_flags"), U16(r, "sample_age_ms"), r.GetProperty("value").GetInt32())).ToArray()),
+        MessageType.ObjectReport => new ObjectReport(U8(f, "format_revision"), U8(f, "sensor_id"), U32(f, "scan_sequence"), U16(f, "sample_age_ms"), U8(f, "sensor_state"), U8(f, "report_flags"), f.GetProperty("observations").EnumerateArray().Select(r => new ObjectObservation(U16(r, "observation_id"), U32(r, "sensor_range_mm"), U32(r, "vehicle_range_mm"), I16(r, "bearing_cdeg"), I16(r, "elevation_cdeg"), U16(r, "range_half_width_mm"), U16(r, "bearing_half_width_cdeg"), U16(r, "elevation_half_width_cdeg"), (TelemetryQuality)U8(r, "quality_flags"))).ToArray()),
         MessageType.Fault => new Fault((FaultCode)U16(f, "fault_code"), (FaultSeverity)U8(f, "severity"), U8(f, "active") != 0, U32(f, "occurrence_counter")),
         _ => throw new InvalidOperationException($"Unhandled type {type}")
     };

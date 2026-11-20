@@ -8,7 +8,7 @@ The contract is in [the BCP draft](../../protocol/BCP_V1_DRAFT.md), with shared
 
 - `FrameCodec`: raw envelope serialization, little-endian fields, COBS and
   CRC-16/CCITT-FALSE. Accepts unknown message types as raw frames, never actions.
-- `BcpCodec`: typed payloads for all 18 assigned messages; checks direction, exact
+- `BcpCodec`: typed payloads for all 19 assigned messages; checks direction, exact
   lengths, effort ranges, buoyancy targets, boolean representation and telemetry
   count/duplicates. Unknown message types are rejected here.
 - `BcpStreamDecoder`: feed receive bytes through `Push`, consume each result
@@ -59,3 +59,9 @@ The xUnit v3 test project links the shared JSON fixtures. It independently const
 messages from fixture fields for encoding, verifies decoded fields, exercises every
 rejection vector and tests malformed frames and stream recovery. See
 `../tests/README.md` for commands. No third-party packages are required by this library.
+
+Object reporting uses vehicle-to-PC `0x33` and SupportedSystems bit 4. The bounded
+snapshot carries up to four observations with distance, body-relative bearing and
+elevation, uncertainty, source state, provenance and acquisition age. See
+[the extension](../../protocol/BCP_OBJECT_REPORTING_PROPOSAL.md). Codec success
+never grants command authority.

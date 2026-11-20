@@ -111,7 +111,10 @@ public enum MessageType : byte
     /// <summary>
     /// Wire identifier for fault messages.
     /// </summary>
-    Fault = 0x32
+    Fault = 0x32,
+
+    /// <summary>Per-sensor object observation snapshot.</summary>
+    ObjectReport = 0x33
 }
 
 /// <summary>

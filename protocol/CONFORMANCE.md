@@ -136,3 +136,168 @@ manager and simulated peer are implemented separately from it. The 40 scenarios
 remain the conformance checklist; representative cases are automated in
 `Bajols.Integration.Tests`, while physical/persistent hardware requirements remain
 outside the simulator. Simulator profile values are fixtures, not hardware settings.
+
+## Portable firmware policy implementation
+
+`firmware/Libraries/BajolsProtocol/src/BajolsSession.h` now implements the portable
+session and authorization layer, independently of the stateless C++ codec.
+`firmware/tests/bcp/session_tests.cpp` drives encoded PC packets through it with
+an explicit virtual onboard clock. Run both suites using
+`python3 firmware/tests/bcp/run_native_tests.py` (also `--sanitize`).
+
+| Native coverage | Cases |
+|---|---|
+| Neutral timing, tolerance, ticket lifetime, replay, generation, first-command deadline and timer wrap | T01–T09, T25 |
+| Independent buoyancy/movement expiry | T10–T11 |
+| Safety priority, repeated stops, cached historical actions, eviction and ID conflict | T12–T16 |
+| Local source changes and monitoring-session replacement | T17, T30 |
+| Depth restriction, held descent, qualified release, sensor loss and explicit recovery | T18–T22, T36–T40 |
+| Local reset, pending durable transactions, failed writes and ambiguous startup records | T23–T24, modeled storage only |
+| Pending expiry, retry retention, confirmation replay and historical nonce/session separation | T26–T29 |
+| Saturating fault recurrence | T35 |
+
+The native suite additionally exercises arm, clear, disarm, emergency and owner
+selector behavior across all five states, malformed traffic at deadlines,
+counter exhaustion, failed durable clear and a stop superseding an in-flight
+clear. T31–T32 belong to the shared-vector codec suite; T33–T34 remain desktop
+interpretation/status-silence responsibilities, not onboard packet authorization.
+This is representative scenario coverage, not exhaustive physical validation.
+
+The boot evidence, storage acknowledgements, sensor samples and controller
+feedback in tests are explicit fixtures. No hardware-verified persistent
+boot transaction, physical emergency latch, receiver adapter, real sensor profile,
+actuator mapping or ballast controller has been implemented. The separate
+`BcpSessionCheck` Mega sketch verifies toolchain compatibility only and starts with
+unverified boot evidence. The existing `TelemetryProof` control loop is unchanged.
+
+### Serial integration coverage
+
+`firmware/tests/bcp/endpoint_tests.cpp` adds an encoded peer driving the portable
+`SerialEndpoint` through a fake nonblocking byte port and virtual clock. It tests
+HELLO fragmentation, short/zero writes, bounded 64-byte RX/TX service, oversized
+frame recovery, eight-slot queue saturation, coalescing without sequence
+reordering, authoritative emergency status admission, stop application while
+replies are dropped, deadline progression during RX flood/TX backpressure, and
+partial-frame cancellation/reconnect. A known PC disconnect immediately revokes
+its authorization; cancellation preserves selected local-owner control.
+
+`BcpSerialCheck` compiles the Mega `HardwareSerial`/`millis()` adapters at 115200
+8N1 in a separate sketch. No actuators or persistent storage are initialized;
+its unverified boot evidence deliberately prevents an operational handshake.
+Native fixtures, not this sketch, supply simulated verified identity and sensors.
+Byte-work bounds are verified, but actual parser/output latency, serial driver
+overruns, durable identity recovery and powered operation remain unvalidated.
+
+### Experimental storage coverage
+
+`firmware/tests/bcp/storage_tests.cpp` tests the portable `IdentityJournal` against
+an in-memory byte device using the proposed format in
+[FIRMWARE_STORAGE_PROPOSAL.md](FIRMWARE_STORAGE_PROPOSAL.md). It cuts power after
+all 67 two-record boot-write boundaries and 134 emergency latch/clear boundaries,
+flips all 1536 individual record bits, and supersedes a local clear with a new
+stop at 67 write boundaries. It additionally covers erased media, CRC-valid
+semantic errors, no older-boot fallback, final paired readback, counter exhaustion,
+read/write/readback failures, exact busy timeout across clock wrap, logical-window
+overflow, token replay and the manager's asynchronous acknowledgement boundary.
+Identity failure cannot invent an emergency latch when the independent emergency
+pair is fully verified cleared. T24's ambiguous storage behavior is modeled;
+physical torn-write behavior remains unvalidated.
+
+The tests explicitly demonstrate that loss before the first durable latch mutation
+can retain old cleared records. An in-flight physical clear byte cannot be recalled.
+Independent emergency hardware remains required. The fixed pairs are a reviewable
+prototype without wear leveling, provisioning or service-recovery tooling.
+`BcpStorageCheck` compiles only a RAM backend and never accesses Mega EEPROM.
+Actual writable board mapping and operational startup integration are not enabled.
+
+### Mega EEPROM adapter and coordinator
+
+The ATmega2560 nonblocking byte backend now implements readiness, address-window
+checks, explicit write permission, unchanged-cell skipping, bounded atomic register
+access and erase/write start. The Mega compile-only check uses write permission
+false. Its instructions were also inspected in a non-LTO AVR object to verify the
+consecutive EEMPE/EEPE start sequence; no physical writes or flash/upload occurred.
+
+Native storage tests additionally execute `PersistenceCoordinator` token ownership,
+one-byte service bounds, no repeated writes while idle, stop superseding clear,
+and failed clear acknowledgement retaining emergency latch/service blockers.
+The coordinator owns runtime submissions; verified boot startup must still create
+the controller from the same journal evidence before runtime service. Real-device
+interrupt latency, electrical/brownout behavior, endurance/wear leveling, approved
+physical mapping and provisioning remain separate prerequisites. Supplied sketches
+cannot write EEPROM or provide an operational provisioned serial vehicle.
+
+### Offline provisioning and composed monitoring startup
+
+`firmware/tools/provision_identity.py` prepares initial paired records only from
+an erased target window in an exact full-device dump, produces a sparse image
+and review manifest, and checks complete readback including unchanged bytes outside
+the window. Tests reject non-erased/partial sources, invalid/reserved identities,
+existing output, manifest tampering, malformed readback and collateral changes.
+There is no device/programmer invocation or force/recovery mode.
+
+The native runner passes the actual offline tool's generated records into
+`monitor_tests.cpp`. `MonitoringRuntime` advances/verifies boot identity before
+placement-constructing its fixed-storage session manager, endpoint and coordinator.
+The test completes encoded HELLO/CONFIRM/READY, checks the provisioned opaque ID,
+zero control/sensor capabilities, arming rejection, reboot counter separation,
+and absence of a manager/session after blank, corrupt or read-only boot failure.
+Startup and runtime preserve the one-storage-byte-per-step bound. Zero/partial
+capability profiles may monitor, but incomplete control support blocks arming even
+for a selected owner with otherwise qualified input.
+
+The new `BcpMonitor` Mega target initializes USB serial only. It defaults read-only;
+write-enabled compilation requires explicit permission, physical base and timeout.
+Both variants compile. No initial image was programmed and no firmware uploaded.
+Native tests are RAM models, not proof of physical endurance, power-loss response,
+USB operation or hardware safety. The fixed-pair development format still needs
+an endurance/wear policy before operational control.
+
+### Object-reporting extension (draft 0.9)
+
+The user authorized protocol implementation on 2026-11-19. See
+[the object-reporting extension](BCP_OBJECT_REPORTING_PROPOSAL.md) for the assigned
+`0x33` message, SupportedSystems bit 4, bounded 95-byte maximum snapshot, body
+coordinates, provenance and acquisition age. Both codecs now cover these fields.
+The shared suite contains 63 vectors (the original 37 plus 26 object cases).
+Existing message payloads and the v1 envelope are unchanged.
+
+The client retains at most sixteen sources, replaces complete snapshots only for
+newer scan counters, combines onboard/local age, and clears them on disconnect.
+Fault/unavailable states replace prior returns. Repeated scans and heartbeats do
+not renew acquisition freshness. Firmware TX coalesces reports by session/source.
+The simulated peer publishes the nearest four returns from at most 32 stationary
+world points plus an optional body-relative test return. All reports are synthetic
+and traverse BCP; the desktop no longer fabricates received observations locally.
+
+Hardware sensor choice, mounting transforms/calibration, source-specific stale
+profiles, measured bandwidth/fairness across physical sources and physical safety
+remain deferred. The schematic display currently uses sensor range and bearing;
+it does not render reported elevation/uncertainty or establish hull clearance.
+
+The object display retains the latest source snapshot within six metres when its
+acquisition expires. Historical markers stop flashing and fade to grey/white over
+one second after expiry, with a stale label. Their positions are last reported
+body-relative positions, not motion-compensated tracks. New source snapshots
+replace them (including empty/fault snapshots); disconnect clears them. This is a
+presentation change and does not renew freshness or change the BCP wire layout.
+
+The six-metre display/simulator limit provisionally covers the anticipated 3–6 m
+sensor class. It is not a validated physical detection range or selected hardware
+specification. BCP ranges remain unsigned millimetres; no wire change is needed.
+
+### Dashboard presentation checks
+
+The desktop suite renders actual XAML with Skia at default/minimum window sizes,
+checking visible controls without scrollbars. Readouts and plain-language status
+are overlaid on the 3D scene; the movement controls, buoyancy selector and bottom
+boxed actions remain separate from protocol/session policy.
+
+The neutral-check bar reflects onboard progress up to 1000 ms, resets on unavailable
+status and is hidden while armed. It never establishes arming authority. The depth
+gauge spans 0–4.5 m, warms toward red at its limit, clamps only its marker for deeper
+values and hides the marker when depth is invalid/unconfirmed. Tests also check
+compass/degrees labels and the enlarged object projection at extreme attitudes.
+The guide ray ends at one metre; it is independent of the provisional six-metre
+object display limit. These are presentation checks, not sensor calibration,
+physical clearance guarantees or changes to onboard safety thresholds.

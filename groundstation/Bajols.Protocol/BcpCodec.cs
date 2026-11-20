@@ -134,6 +134,28 @@ public static class BcpCodec
                 }
 
                 break;
+            case ObjectReport m:
+                w.U8(m.FormatRevision);
+                w.U8(m.SensorId);
+                w.U32(m.ScanSequence);
+                w.U16(m.SampleAgeMs);
+                w.U8(m.SensorState);
+                w.U8(m.ReportFlags);
+                w.U8((byte)m.Observations.Count);
+                foreach (var observation in m.Observations)
+                {
+                    w.U16(observation.ObservationId);
+                    w.U32(observation.SensorRangeMm);
+                    w.U32(observation.VehicleRangeMm);
+                    w.I16(observation.BearingCdeg);
+                    w.I16(observation.ElevationCdeg);
+                    w.U16(observation.RangeHalfWidthMm);
+                    w.U16(observation.BearingHalfWidthCdeg);
+                    w.U16(observation.ElevationHalfWidthCdeg);
+                    w.U8((byte)observation.QualityFlags);
+                }
+
+                break;
             case Fault m:
                 w.U16((ushort)m.FaultCode);
                 w.U8((byte)m.Severity);
@@ -246,6 +268,22 @@ public static class BcpCodec
 
                 message = new Telemetry(records.AsReadOnly());
                 break;
+            case MessageType.ObjectReport:
+                byte revision = r.U8();
+                byte sensor = r.U8();
+                uint scan = r.U32();
+                ushort age = r.U16();
+                byte state = r.U8();
+                byte flags = r.U8();
+                int objectCount = r.U8();
+                var observations = new List<ObjectObservation>(objectCount);
+                for (int i = 0; i < objectCount; i++)
+                {
+                    observations.Add(new(r.U16(), r.U32(), r.U32(), r.I16(), r.I16(), r.U16(), r.U16(), r.U16(), (TelemetryQuality)r.U8()));
+                }
+
+                message = new ObjectReport(revision, sensor, scan, age, state, flags, observations.AsReadOnly());
+                break;
             case MessageType.Fault:
                 message = new Fault((FaultCode)r.U16(), (FaultSeverity)r.U8(), r.U8() != 0, r.U32());
                 break;
@@ -271,7 +309,7 @@ public static class BcpCodec
         }
 
         bool pc = type is MessageType.Hello or MessageType.SessionConfirm or MessageType.Heartbeat or MessageType.MovementCommand or MessageType.Arm or MessageType.Disarm or MessageType.ClearFailsafe or MessageType.EmergencyStop or MessageType.BuoyancyCommand or MessageType.GetCapabilities;
-        bool vehicle = type is MessageType.HelloReply or MessageType.SessionReady or MessageType.ControlTicket or MessageType.Heartbeat or MessageType.CommandResult or MessageType.Capabilities or MessageType.VehicleStatus or MessageType.Telemetry or MessageType.Fault;
+        bool vehicle = type is MessageType.HelloReply or MessageType.SessionReady or MessageType.ControlTicket or MessageType.Heartbeat or MessageType.CommandResult or MessageType.Capabilities or MessageType.VehicleStatus or MessageType.Telemetry or MessageType.Fault or MessageType.ObjectReport;
         bool valid = direction switch
         {
             WireDirection.PcToVehicle => pc,
@@ -290,8 +328,9 @@ public static class BcpCodec
         BuoyancyCommand m => Enum.IsDefined(m.Target),
         VehicleStatus m => !m.HasUnknownControlValues,
         CommandResult m => Enum.IsDefined(m.Result) && m.OriginalMessageType is MessageType.Arm or MessageType.Disarm or MessageType.ClearFailsafe or MessageType.EmergencyStop,
-        Capabilities m => (m.SupportedModes & ~1) == 0 && (m.SupportedAxes & ~7) == 0 && (m.SupportedSystems & ~15) == 0 && (m.SupportedTelemetry & ~255u) == 0,
+        Capabilities m => (m.SupportedModes & ~1) == 0 && (m.SupportedAxes & ~7) == 0 && (m.SupportedSystems & ~31) == 0 && (m.SupportedTelemetry & ~255u) == 0,
         Telemetry m => m.Records is not null && m.Records.Count <= 11 && m.Records.All(r => Enum.IsDefined(r.MeasurementId) && r.HasKnownQualityFlags),
+        ObjectReport m => m.Observations is not null && m.Observations.Count <= 4 && m.Observations.All(o => o is not null),
         Fault m => Enum.IsDefined(m.FaultCode) && Enum.IsDefined(m.Severity),
         _ => true
     };
@@ -318,7 +357,7 @@ public static class BcpCodec
             MessageType.GetCapabilities => 0,
             MessageType.VehicleStatus => 34,
             MessageType.Fault => 8,
-            MessageType.Telemetry => -1,
+            MessageType.Telemetry or MessageType.ObjectReport => -1,
             _ => -2
         };
         if (length == -2)
@@ -331,6 +370,11 @@ public static class BcpCodec
         {
             error = CodecError.InvalidPayloadLength;
             return false;
+        }
+
+        if (type == MessageType.ObjectReport)
+        {
+            return ObjectReportValidation.Validate(p, out error);
         }
 
         if (type == MessageType.Telemetry)

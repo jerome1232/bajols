@@ -1,9 +1,9 @@
-# BCP v1 — Discussion draft 0.8
+# BCP v1 — Discussion draft 0.9
 
-Status: approved design baseline, updated 2026-11-16. Numeric registry and bounded
+Status: approved design baseline, updated 2026-11-19. Numeric registry and bounded
 handshake rules approved. The user subsequently authorized the C# codec and its
 conformance tests, followed by desktop session handling and a simulated peer.
-Firmware integration and powered tests remain outside that implementation scope. Draft 0.8 clarifies codec validation without changing wire bytes.
+Firmware integration and powered tests remain outside that implementation scope. Draft 0.8 clarified codec validation without changing wire bytes. Draft 0.9 adds the user-authorized object-reporting extension (section 16).
 
 Sections distinguish agreed behavior from proposals. Agreed timing values are
 design targets pending simulation and hardware validation. Existing experimental
@@ -335,6 +335,7 @@ Envelope parameters were accepted in the completion package (section 9).
 | `0x30` | `VEHICLE_STATUS` | Vehicle → PC | See section 8.3 |
 | `0x31` | `TELEMETRY` | Vehicle → PC | See section 8.4 |
 | `0x32` | `FAULT` | Vehicle → PC | See section 8.5 |
+| `0x33` | `OBJECT_REPORT` | Vehicle → PC | Bounded source snapshot; see section 16 |
 
 No remote emergency-stop-reset operation exists. A successful result means acceptance, not
 physical completion of ballast evacuation or neutral-buoyancy recovery.
@@ -385,7 +386,7 @@ Reserved unsupported bits are zero.
 | Capability revision | `u16` | Capability-set identifier for this session |
 | Supported modes | `u16` bitmask | Bit 0: effort control |
 | Supported axes | `u8` bitmask | Bits 0–2: forward, yaw, dive |
-| Supported systems | `u16` bitmask | Bits 0–3: emergency evacuation, neutral seeking, positive seeking, negative seeking |
+| Supported systems | `u16` bitmask | Bits 0–4: emergency evacuation, neutral seeking, positive seeking, negative seeking, object reporting |
 | Supported telemetry | `u32` bitmask | Measurements in section 8.4; bit mapping in section 12 |
 | Movement interval | `u16`, ms | 50 |
 | Command timeout | `u16`, ms | 500 |
@@ -599,7 +600,7 @@ Agreed bit assignments (unlisted bits reserved):
 | Field | Bits |
 |---|---|
 | Arming blockers | 0 no owner; 1 stale/unavailable owner; 2 non-neutral input; 3 neutral hold incomplete; 4 command-loss latch; 5 emergency latch; 6 blocking fault; 7 required subsystem unavailable; 8 arm action must reset; 9 fault-failsafe latch |
-| Supported systems | 0 emergency evacuation; 1 neutral seeking; 2 positive seeking; 3 negative seeking |
+| Supported systems | 0 emergency evacuation; 1 neutral seeking; 2 positive seeking; 3 negative seeking; 4 object reporting |
 | Supported telemetry | Bit `measurement_id - 1` for IDs 1 through 8 |
 | Active restrictions | 0 depth limit active; 1 depth unavailable; 2 downward control inhibited |
 | Telemetry quality | 0 valid; 1 simulated; 2 estimated; 3 sensor fault |
@@ -780,8 +781,10 @@ matrix, deterministic scenarios and [shared wire vectors](test-vectors/wire-v1.j
 for all assigned message types, signed boundaries and malformed input.
 The vectors were independently decoded and CRC-checked during preparation. C# codec
 tests now execute the shared vectors. Stateful simulator and end-to-end session
-scenarios are also tested separately; firmware/hardware conformance remains pending. The vectors retain their draft 0.7 baseline because the wire
-bytes are unchanged by draft 0.8.
+scenarios are also tested separately; hardware conformance remains pending.
+The shared file now references draft 0.9 and contains 63 vectors: the original 37
+plus 26 object-reporting cases. Both C# and portable C++ codecs execute them.
+Existing message layouts remain unchanged by the additive object extension.
 Review findings in the plan identify remaining behavioral clarifications rather
 than silently selecting new acceptance policies.
 Any inconsistency found during this review must be recorded and resolved explicitly,
@@ -838,3 +841,22 @@ A future manager must stop movement before exhausting the counters needed for
 authorization and must not wrap, reuse identity or renew old intent. Persistent
 storage failure follows section 13.5. Counter-boundary and failed-storage transitions
 remain mandatory simulator/hardware verification before enabling vehicle control.
+
+## 16. Object-observation extension
+
+Authorized for protocol implementation on 2026-11-19. The normative payload and
+source semantics are in [the object-reporting extension](BCP_OBJECT_REPORTING_PROPOSAL.md).
+`OBJECT_REPORT` is vehicle-to-PC message `0x33`; SupportedSystems bit 4 indicates
+implemented reporting. The v1 envelope and 96-byte maximum payload are unchanged.
+This is additive: older typed codecs reject the new message and ignore the unknown
+capability bit. Existing message payload layouts remain unchanged.
+
+Reports carry up to four observations per source with sensor range, vehicle-datum
+range, body-relative bearing/elevation, uncertainty, provenance and acquisition age.
+They grant no control authority. Source snapshots replace rather than accumulate;
+replayed scans and heartbeats cannot renew their freshness. Clear the cache when
+the session ends. The initial desktop limit is sixteen sources.
+
+C++ and C# codecs and shared vectors implement this extension. The simulated peer
+publishes synthetic acquisitions over BCP. Sensor hardware, driver integration,
+mounting calibration, measured link budgets and powered validation remain deferred.
