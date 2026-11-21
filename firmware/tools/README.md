@@ -22,6 +22,25 @@ otherwise its deliberate boot-counter updates will invalidate initial verificati
 Select an exclusive 192-byte window and use the same base in the firmware build.
 No physical address is selected automatically by this utility.
 
+### Read the Mega EEPROM through an Uno
+
+Upload ArduinoISP to a classic Uno and wire it to the Mega as described in the
+[Uno wiring and setup instructions](../BUILD_AND_PROVISION.md#dump-the-mega-eeprom-using-an-uno-as-isp).
+With PySerial installed, run this from the repository root using the Uno's
+serial port:
+
+```sh
+UNO_PORT=/dev/ttyUSB0
+python3 firmware/tools/dump_mega_eeprom.py --port "$UNO_PORT" --output /tmp/mega-eeprom-before.bin
+```
+
+The reader checks the ATmega2560 signature and reads each EEPROM byte by its
+explicit address. This bypasses the paged read path that can return mirrored
+data even when AVRDUDE reports a successful 4096-byte read. It only reads the
+chip and requires a new output path.
+
+### Prepare the bundle
+
 ```sh
 python3 firmware/tools/provision_identity.py prepare \
   --initial-provision \
@@ -49,9 +68,11 @@ unmentioned cells. No programmer command or automatic hardware step is included.
 ## Verify the initial readback
 
 After a separately approved programming action, obtain another full raw dump
-before starting/flashing the monitoring runtime. Verify with:
+before starting/flashing the monitoring runtime. Use the same direct-address
+reader with a different output path, then run the offline verifier:
 
 ```sh
+python3 firmware/tools/dump_mega_eeprom.py --port "$UNO_PORT" --output /tmp/mega-eeprom-after.bin
 python3 firmware/tools/provision_identity.py verify \
   --original /tmp/mega-eeprom-before.bin \
   --readback /tmp/mega-eeprom-after.bin \

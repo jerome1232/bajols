@@ -106,17 +106,50 @@ Do not use a running EEPROM-write-enabled application while preparing/verifying 
 initial dump; resets can advance the journal. A read-only avrdude command does not
 prevent the application itself from writing after avrdude releases the board.
 
-The following Linux path matches the tested AVR installation. Check the tool path
-shown by a verbose Arduino upload if your installation differs.
+#### Dump the Mega EEPROM using an Uno as ISP
+
+Use a classic AVR Uno (such as an Uno R3) as the programmer. Some Mega 2560
+serial bootloaders misaddress EEPROM, so a 4096-byte dump from `-c wiring` can
+contain duplicated data. The standard AVRDUDE paged read through ArduinoISP
+also produced a mirrored dump in bench testing. Use the direct-address reader
+below for the backup and readback.
+[Mega bootloader EEPROM issue](https://github.com/arduino/ArduinoCore-avr/pull/24)
+
+1. Connect the Uno by USB. In Arduino IDE, select **Arduino Uno** and the Uno's
+   port. Open **File > Examples > 11.ArduinoISP > ArduinoISP** and upload it
+   using the normal **Upload** button.
+2. Unplug both boards before wiring. Disconnect the Mega's USB cable and any
+   other power source. For a bare Mega on the bench, the Uno supplies 5 V over
+   the jumper below. Use the Mega's main ATmega2560 ICSP header near the center
+   of the board. The second ICSP header near the USB connector is for the USB
+   interface chip. [Arduino ISP wiring guide](https://support.arduino.cc/hc/en-us/articles/4841602539164-Burn-the-bootloader-on-UNO-Mega-and-classic-Nano-using-another-Arduino)
+
+   | Uno R3 | Mega 2560 |
+   | --- | --- |
+   | D10 | RESET |
+   | D11 | MOSI (D51) |
+   | D12 | MISO (D50) |
+   | D13 | SCK (D52) |
+   | 5V | 5V |
+   | GND | GND |
+
+3. Reconnect only the Uno's USB cable. Use the Uno's serial port in the command
+   below. If opening the port resets the Uno and the reader cannot sync, put a
+   10 µF capacitor between **Uno RESET** and **Uno GND** (positive lead to RESET)
+   after uploading ArduinoISP. Remove it before uploading another Uno sketch.
+
+Install PySerial for the Python interpreter you use (for example,
+`python3 -m pip install pyserial` in an active virtual environment). From the
+repository root, run:
 
 ```sh
-AVRDUDE_DIR="$HOME/.arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1"
-"$AVRDUDE_DIR/bin/avrdude" -C "$AVRDUDE_DIR/etc/avrdude.conf" -p m2560 -c wiring -P "$MEGA_PORT" -b 115200 -n -A -U eeprom:r:/tmp/mega-before.bin:r
-wc -c /tmp/mega-before.bin
+UNO_PORT=/dev/ttyUSB0  # Replace with the Uno's port
+python3 firmware/tools/dump_mega_eeprom.py --port "$UNO_PORT" --output /tmp/mega-before.bin
 ```
 
-The dump must be exactly **4096 bytes**. `-n` prevents avrdude writes; `-A` retains
-trailing `0xFF` bytes. The selected 192-byte window must be entirely erased.
+The reader checks for ATmega2560 signature `0x1e9801` and saves all **4096 bytes**,
+including trailing `0xFF` bytes. Choose a new output filename if one already
+exists. The selected 192-byte window must be entirely erased.
 
 ### 2. Prepare and review the offline image
 
@@ -130,19 +163,29 @@ explicitly assigned, unique new 32-hex-character ID. No device is accessed here.
 
 ### 3. Manually program only the selected EEPROM window
 
-This command writes hardware. It is a separate service action after bundle review.
+Keep the Uno-as-ISP wiring in place for programming and readback. This command
+writes hardware. It is a separate service action after bundle review.
 Do not add a chip erase, force signature override, or an EEPROM-wide erase.
+The AVRDUDE path below is for the tested Linux installation. If AVRDUDE reports
+a verification mismatch, take the direct-address readback before considering a
+retry. The paged verification read can report a mismatch after a successful write.
 
 ```sh
-"$AVRDUDE_DIR/bin/avrdude" -C "$AVRDUDE_DIR/etc/avrdude.conf" -p m2560 -c wiring -P "$MEGA_PORT" -b 115200 -D -A -U eeprom:w:/tmp/mega-provision/identity.eep.hex:i
-"$AVRDUDE_DIR/bin/avrdude" -C "$AVRDUDE_DIR/etc/avrdude.conf" -p m2560 -c wiring -P "$MEGA_PORT" -b 115200 -n -A -U eeprom:r:/tmp/mega-after.bin:r
+AVRDUDE_DIR="$HOME/.arduino15/packages/arduino/tools/avrdude/8.0.0-arduino1"
+"$AVRDUDE_DIR/bin/avrdude" -C "$AVRDUDE_DIR/etc/avrdude.conf" -p m2560 -c stk500v1 -P "$UNO_PORT" -b 19200 -D -A -U eeprom:w:/tmp/mega-provision/identity.eep.hex:i
+python3 firmware/tools/dump_mega_eeprom.py --port "$UNO_PORT" --output /tmp/mega-after.bin
 python3 firmware/tools/provision_identity.py verify --original /tmp/mega-before.bin --readback /tmp/mega-after.bin --manifest /tmp/mega-provision/manifest.json
 ```
 
-Verification checks the exact initial records and every unchanged byte outside
-the selected window. Stop if verification fails; do not repeatedly reprovision.
+Verification checks the exact initial records and compares every byte outside
+the selected window against the original backup. Use the direct-address reader
+for both files to establish that those bytes were preserved. Stop if verification
+fails; do not repeatedly reprovision.
 
 ### 4. Compile and manually upload the writable runtime
+
+Unplug the Uno and disconnect the jumper wires before reconnecting the Mega by
+USB. Set `MEGA_PORT` to the Mega's current serial port.
 
 The following 10 ms byte timeout is a development example requiring validation for
 the actual board. The base must match the reviewed provisioned window.
