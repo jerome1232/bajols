@@ -59,7 +59,9 @@ public sealed class SerialByteTransport : IByteTransport
         try
         {
             await Task.Run(port.Open, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
+            // Opening a USB serial port can reset an Arduino before modem
+            // control settings take effect. Let its bootloader exit before sending BCP.
+            await Task.Delay(TimeSpan.FromMilliseconds(1500), cancellationToken);
             State = ConnectionState.Connected;
         }
         catch
