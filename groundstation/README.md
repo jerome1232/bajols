@@ -2,7 +2,8 @@
 
 A .NET 10/Avalonia desktop ground station for Ubuntu/GNOME and Windows. It includes
 BCP encoding, explicit session establishment, validated YAML configuration, a serial
-adapter, a simulated peer, keyboard/trackpad input and a live status dashboard.
+adapter, a simulated peer, keyboard, trackpad and gamepad input, and a live
+status dashboard.
 It starts disconnected and never automatically connects, clears failsafe or arms.
 
 ## Build, test and run
@@ -31,12 +32,12 @@ intentionally when changing dependencies.
    vehicle ID. Status changes from unconfirmed to confirmed; telemetry is marked SIM.
 2. Hold **Space** with forward/yaw/dive centered. After one second of fresh neutral
    input, press **Arm** while continuing to hold Space.
-3. Hold Space and drag the circular pad: top ahead, bottom reverse, left port,
-   right starboard. The pad combines forward/yaw intent within a unit disk and
-   springs to neutral on release or capture loss. W/S and A/D also update it.
-   Dive/pitch uses a vertical slider beside the pad at the same height, with a
-   prominent neutral mark and smaller ticks. Up is negative, down positive;
-   R/F remain down/up shortcuts. Keyboard effort is 50%.
+3. Hold Space and drag the circular pad. The top requests nose up, the bottom
+   requests nose down, and left and right request port and starboard yaw.
+   The pad combines pitch and yaw within a unit disk and springs to neutral on
+   release or capture loss. R/F request nose down/up and A/D request port/starboard.
+   The throttle slider to the right requests ahead at the top, neutral in the
+   center, and reverse at the bottom. W/S request ahead/reverse. Keyboard effort is 50%.
    Pad dragging does not enable input or arm the vehicle. The **Buoyancy** control
    is a three-position vertical selector: Positive at the top, Neutral in the
    middle and Negative at the bottom. Neutral is selected initially and after
@@ -50,8 +51,19 @@ intentionally when changing dependencies.
 There is no on-screen input-enable button. Space remains the hold-to-enable
 control, including while clicking Arm or Clear failsafe. The input snapshot expires
 after 200 ms if the UI stops refreshing it, independently of the background
-communication loop. Keyboard guidance is documented here rather than shown in
-the dashboard.
+communication loop. Open **Controls** in the dashboard header for the keyboard
+and gamepad reference. Opening it releases held input.
+
+### Keyboard and on-screen controls
+
+| Action | Control |
+| --- | --- |
+| Hold to enable input | Space |
+| Pitch nose up / down | F / R, or drag the trackpad up / down |
+| Yaw port / starboard | A / D, or drag the trackpad left / right |
+| Throttle ahead / reverse | W / S, or move the throttle slider up / down |
+| Arm, clear failsafe, disarm, emergency stop | Corresponding dashboard buttons |
+| Positive, neutral or negative buoyancy | Top, center or bottom of the buoyancy slider |
 
 Simulation controls inject movement loss, the 5 m depth condition and depth-sensor
 loss. **Local emergency reset** represents an action at the simulated vehicle and
@@ -75,9 +87,9 @@ red approaching 4.5 m; the marker clamps at the bottom for deeper readings while
 the text continues to report actual depth. Invalid, stale or disconnected depth
 hides the marker and shows a dash. This gauge does not change onboard depth policy.
 
-The full-width control panel sits below the scene. The circular forward/yaw pad
-and vertical pitch slider share an outlined box centred in the panel. The pitch
-label is beside the neutral notch, with effort percentages near the ends.
+The full-width control panel sits below the scene. The circular pitch/yaw pad
+and vertical throttle slider share an outlined box centred in the panel. The throttle
+label is beside the neutral notch, with ahead and reverse percentages near the ends.
 Buoyancy sits immediately to the right, in an outlined box of matching height.
 Arm, Disarm, Clear failsafe and Emergency stop share a box anchored at the bottom.
 The default and minimum window layouts are checked without scrollbars.
@@ -186,6 +198,30 @@ writes allow at most one 116-byte frame. Driver operations use finite timeouts o
 the UI thread; cancellation closes the serial connection. Actual driver open/close
 latency remains OS/device-dependent and requires hardware testing.
 
+## Gamepad
+
+The ground station uses the first SDL2-mapped game controller. On Debian or
+Ubuntu, install `libsdl2-2.0-0` if needed. On Windows, put the SDL2 runtime's
+`SDL2.dll` beside the executable and match its architecture. Connect the
+controller by USB or Bluetooth and keep the ground-station window focused.
+
+| Control | Action |
+| --- | --- |
+| Left stick | Trackpad pitch and yaw. Up requests nose up, and left/right turn port/starboard. |
+| Right stick up/down | Ahead/reverse throttle. |
+| Left shoulder | Hold to enable input. Center both sticks for neutral qualification. |
+| Right trigger | Arm once the normal arming checks pass. |
+| Right shoulder | Clear failsafe when the normal checks allow it. |
+| Left trigger | Disarm. |
+| A (south face button) | Emergency stop. |
+| D-pad up/down | Select positive/negative buoyancy while holding left shoulder. |
+| D-pad left/right | Select neutral buoyancy while holding left shoulder. |
+
+Releasing left shoulder, unplugging the controller, or losing window focus
+clears gamepad movement and buoyancy. Press left shoulder again to resume
+sampling. Disarm and emergency stop work with an active session without holding
+left shoulder. The vehicle still determines which actions are available.
+
 ## Simulator limitations and next hardware work
 
 The simulated vehicle models authorization, tickets, replay/idempotency, safety
@@ -193,8 +229,7 @@ latches and illustrative motion, not hydrodynamics. Depth can also be overridden
 fault injection, buoyancy estimate stays unknown, and evacuation completion is simulated. Its 4.5 m
 intervention / 4 m release profile is a test fixture, not approved hardware calibration.
 FlySky ownership can be selected in model tests, but no physical iBus adapter or
-FlySky arming switch is implemented in this desktop simulator. Gamepads are deferred;
-keyboard and on-screen inputs are implemented.
+FlySky arming switch is implemented in this desktop simulator.
 
 Onboard firmware still owns real actuator control and safety. Persistent boot/latch
 storage, ballast hardware, sensors, profile validation and powered testing remain

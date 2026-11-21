@@ -8,15 +8,15 @@ namespace Bajols.GroundStation.Views;
 
 /// <summary>
 /// Spring-centered circular movement input. It changes intent only, never input
-/// enable, arming, buoyancy, or the independent dive axis.
+/// enable, arming, buoyancy, or the independent throttle axis.
 /// </summary>
 public partial class MovementPad : UserControl
 {
     /// <summary>
-    /// Two-way normalized forward effort; negative values request reverse.
+    /// Two-way normalized dive effort; negative values request nose up.
     /// </summary>
-    public static readonly StyledProperty<double> ForwardProperty =
-        AvaloniaProperty.Register<MovementPad, double>(nameof(Forward), defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<double> DiveProperty =
+        AvaloniaProperty.Register<MovementPad, double>(nameof(Dive), defaultBindingMode: BindingMode.TwoWay);
 
     /// <summary>
     /// Two-way normalized yaw effort; positive values request starboard.
@@ -45,7 +45,7 @@ public partial class MovementPad : UserControl
     private readonly Canvas surface;
 
     /// <summary>
-    /// Indicator of the current forward/yaw input, including keyboard changes.
+    /// Indicator of the current dive/yaw input, including keyboard changes.
     /// </summary>
     private readonly Ellipse puck;
 
@@ -55,14 +55,14 @@ public partial class MovementPad : UserControl
     private readonly Line vector;
 
     /// <summary>
-    /// Ahead-only percentage between the top direction label and disk.
+    /// Nose-up percentage between the top direction label and disk.
     /// </summary>
-    private readonly TextBlock aheadPercentage;
+    private readonly TextBlock pitchUpPercentage;
 
     /// <summary>
-    /// Reverse-only percentage between the bottom direction label and disk.
+    /// Nose-down percentage between the bottom direction label and disk.
     /// </summary>
-    private readonly TextBlock reversePercentage;
+    private readonly TextBlock pitchDownPercentage;
 
     /// <summary>
     /// Port-only yaw percentage immediately left of the disk.
@@ -80,16 +80,16 @@ public partial class MovementPad : UserControl
     private IPointer? draggingPointer;
 
     /// <summary>
-    /// Requested ahead-positive effort, bound to the existing input view model.
+    /// Requested downward-positive effort, bound to the existing input view model.
     /// </summary>
-    public double Forward
+    public double Dive
     {
-        get => GetValue(ForwardProperty);
-        set => SetValue(ForwardProperty, value);
+        get => GetValue(DiveProperty);
+        set => SetValue(DiveProperty, value);
     }
 
     /// <summary>
-    /// Requested starboard-positive yaw, bound independently from forward effort.
+    /// Requested starboard-positive yaw, bound independently from dive effort.
     /// </summary>
     public double Yaw
     {
@@ -106,8 +106,8 @@ public partial class MovementPad : UserControl
         surface = this.FindControl<Canvas>("InputSurface")!;
         puck = this.FindControl<Ellipse>("Puck")!;
         vector = this.FindControl<Line>("IntentVector")!;
-        aheadPercentage = this.FindControl<TextBlock>("AheadPercentage")!;
-        reversePercentage = this.FindControl<TextBlock>("ReversePercentage")!;
+        pitchUpPercentage = this.FindControl<TextBlock>("PitchUpPercentage")!;
+        pitchDownPercentage = this.FindControl<TextBlock>("PitchDownPercentage")!;
         portPercentage = this.FindControl<TextBlock>("PortPercentage")!;
         starboardPercentage = this.FindControl<TextBlock>("StarboardPercentage")!;
         surface.PointerPressed += OnPressed;
@@ -124,7 +124,7 @@ public partial class MovementPad : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == ForwardProperty || change.Property == YawProperty)
+        if (change.Property == DiveProperty || change.Property == YawProperty)
         {
             UpdateVisual();
         }
@@ -135,22 +135,22 @@ public partial class MovementPad : UserControl
     /// </summary>
     private void UpdateVisual()
     {
-        if (puck is null || vector is null || aheadPercentage is null || reversePercentage is null ||
+        if (puck is null || vector is null || pitchUpPercentage is null || pitchDownPercentage is null ||
             portPercentage is null || starboardPercentage is null)
         {
             return;
         }
 
-        double forward = double.IsFinite(Forward) ? Math.Clamp(Forward, -1, 1) : 0;
+        double dive = double.IsFinite(Dive) ? Math.Clamp(Dive, -1, 1) : 0;
         double yaw = double.IsFinite(Yaw) ? Math.Clamp(Yaw, -1, 1) : 0;
-        double magnitude = Math.Max(1, Math.Sqrt(forward * forward + yaw * yaw));
+        double magnitude = Math.Max(1, Math.Sqrt(dive * dive + yaw * yaw));
         double x = CenterX + Radius * yaw / magnitude;
-        double y = CenterY - Radius * forward / magnitude;
+        double y = CenterY + Radius * dive / magnitude;
         Canvas.SetLeft(puck, x - 9);
         Canvas.SetTop(puck, y - 9);
         vector.EndPoint = new Point(x, y);
-        aheadPercentage.Text = $"{Math.Max(forward, 0):0%}";
-        reversePercentage.Text = $"{Math.Max(-forward, 0):0%}";
+        pitchUpPercentage.Text = $"{Math.Max(-dive, 0):0%}";
+        pitchDownPercentage.Text = $"{Math.Max(dive, 0):0%}";
         portPercentage.Text = $"{Math.Max(-yaw, 0):0%}";
         starboardPercentage.Text = $"{Math.Max(yaw, 0):0%}";
     }
@@ -161,9 +161,9 @@ public partial class MovementPad : UserControl
     private void ApplyPointer(Point position)
     {
         double yaw = (position.X - CenterX) / Radius;
-        double forward = (CenterY - position.Y) / Radius;
-        double magnitude = Math.Max(1, Math.Sqrt(forward * forward + yaw * yaw));
-        SetCurrentValue(ForwardProperty, forward / magnitude);
+        double dive = (position.Y - CenterY) / Radius;
+        double magnitude = Math.Max(1, Math.Sqrt(dive * dive + yaw * yaw));
+        SetCurrentValue(DiveProperty, dive / magnitude);
         SetCurrentValue(YawProperty, yaw / magnitude);
     }
 
@@ -247,7 +247,7 @@ public partial class MovementPad : UserControl
     {
         IPointer? pointer = draggingPointer;
         draggingPointer = null;
-        SetCurrentValue(ForwardProperty, 0);
+        SetCurrentValue(DiveProperty, 0);
         SetCurrentValue(YawProperty, 0);
         if (pointer?.Captured == surface)
         {

@@ -2,11 +2,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Bajols.GroundStation.Views.MovementPad"
              Focusable="True"
-             AutomationProperties.Name="Forward, reverse and yaw pad.">
+             AutomationProperties.Name="Pitch and yaw pad. Up is nose up.">
   <Viewbox Stretch="Uniform">
     <Canvas x:Name="InputSurface" Width="280" Height="240" Background="Transparent">
-      <TextBlock Canvas.Top="5" Width="280" Text="AHEAD" TextAlignment="Center" FontSize="12" Foreground="#A9BAC8" />
-      <TextBlock Canvas.Top="218" Width="280" Text="REVERSE" TextAlignment="Center" FontSize="12" Foreground="#A9BAC8" />
+      <TextBlock Canvas.Top="5" Width="280" Text="NOSE UP" TextAlignment="Center" FontSize="12" Foreground="#A9BAC8" />
+      <TextBlock Canvas.Top="218" Width="280" Text="NOSE DOWN" TextAlignment="Center" FontSize="12" Foreground="#A9BAC8" />
       <TextBlock Canvas.Left="0" Canvas.Top="114" Text="PORT" FontSize="10" Foreground="#A9BAC8" />
       <TextBlock Canvas.Left="254" Canvas.Top="114" Text="STBD" FontSize="10" Foreground="#A9BAC8" />
       <Ellipse Canvas.Left="62" Canvas.Top="42" Width="156" Height="156"
@@ -15,9 +15,9 @@
                Stroke="#243B4B" StrokeThickness="1" StrokeDashArray="3,4" />
       <Line StartPoint="140,42" EndPoint="140,198" Stroke="#365162" StrokeDashArray="4,4" />
       <Line StartPoint="62,120" EndPoint="218,120" Stroke="#365162" StrokeDashArray="4,4" />
-      <TextBlock x:Name="AheadPercentage" Canvas.Top="25" Width="280" Text="0%"
+      <TextBlock x:Name="PitchUpPercentage" Canvas.Top="25" Width="280" Text="0%"
                  TextAlignment="Center" FontSize="12" Foreground="#69CCC4" IsHitTestVisible="False" />
-      <TextBlock x:Name="ReversePercentage" Canvas.Top="201" Width="280" Text="0%"
+      <TextBlock x:Name="PitchDownPercentage" Canvas.Top="201" Width="280" Text="0%"
                  TextAlignment="Center" FontSize="12" Foreground="#69CCC4" IsHitTestVisible="False" />
       <TextBlock x:Name="PortPercentage" Canvas.Left="28" Canvas.Top="112" Width="32" Text="0%"
                  TextAlignment="Center" FontSize="11" Foreground="#69CCC4" IsHitTestVisible="False" />

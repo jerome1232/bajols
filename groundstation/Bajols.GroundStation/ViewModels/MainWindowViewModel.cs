@@ -388,20 +388,41 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         }
     }
 
+    internal bool GamepadInputHeld { get; private set; }
+
+    // Only the gamepad poll can renew a gamepad sample.
+    internal void UpdateGamepadInput(MovementIntent effort, bool beginHold)
+    {
+        if (beginHold)
+        {
+            ReleaseInput();
+            GamepadInputHeld = true;
+        }
+
+        if (GamepadInputHeld)
+        {
+            input.Update(effort, true);
+            Forward = effort.Forward;
+            Yaw = effort.Yaw;
+            Dive = effort.Dive;
+        }
+    }
+
     /// <summary>
     /// Clears held movement and normal buoyancy intent and updates the bound input controls.
     /// </summary>
     public void ReleaseInput()
     {
         enableHeld = false;
+        GamepadInputHeld = false;
         input.Release();
         forward = yaw = dive = 0;
         buoyancy = BuoyancyTarget.Neutral;
         Changed(nameof(Forward));
         Changed(nameof(Yaw));
         Changed(nameof(Dive));
-        Changed(nameof(DiveUpPercentage));
-        Changed(nameof(DiveDownPercentage));
+        Changed(nameof(ThrottleAheadPercentage));
+        Changed(nameof(ThrottleReversePercentage));
         NotifyBuoyancySelection();
     }
 
@@ -419,7 +440,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     }
 
     /// <summary>
-    /// Finite normalized forward effort requested by the movement pad or keyboard input.
+    /// Finite normalized forward effort requested by the throttle slider or keyboard input.
     /// </summary>
     public double Forward
     {
@@ -428,6 +449,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         {
             forward = double.IsFinite(value) ? Math.Clamp(value, -1, 1) : 0;
             Changed();
+            Changed(nameof(ThrottleAheadPercentage));
+            Changed(nameof(ThrottleReversePercentage));
         }
     }
 
@@ -454,20 +477,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
         {
             dive = double.IsFinite(value) ? Math.Clamp(value, -1, 1) : 0;
             Changed();
-            Changed(nameof(DiveUpPercentage));
-            Changed(nameof(DiveDownPercentage));
         }
     }
 
     /// <summary>
-    /// Unsigned upward effort displayed next to the top of the vertical slider.
+    /// Unsigned ahead effort displayed next to the top of the vertical slider.
     /// </summary>
-    public string DiveUpPercentage => $"{Math.Max(-dive, 0):0%}";
+    public string ThrottleAheadPercentage => $"{Math.Max(forward, 0):0%}";
 
     /// <summary>
-    /// Unsigned downward effort displayed next to the bottom of the vertical slider.
+    /// Unsigned reverse effort displayed next to the bottom of the vertical slider.
     /// </summary>
-    public string DiveDownPercentage => $"{Math.Max(dive, 0):0%}";
+    public string ThrottleReversePercentage => $"{Math.Max(-forward, 0):0%}";
 
     /// <summary>
     /// Index of the selected normal buoyancy target in the UI, independent of emergency evacuation.
@@ -912,12 +933,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// <summary>
     /// Whether fresh status, ownership, held input and onboard blockers permit offering the Arm action.
     /// </summary>
-    public bool CanArm => enableHeld && Snapshot is { StatusFresh: true, CompatibleCapabilities: true, Status: { HasUnknownControlValues: false, SafetyState: SafetyState.Disarmed, MovementOwner: Bajols.Protocol.MovementOwner.Pc, ArmingBlockers: ArmingBlockers.None } };
+    public bool CanArm => InputEnableHeld && Snapshot is { StatusFresh: true, CompatibleCapabilities: true, Status: { HasUnknownControlValues: false, SafetyState: SafetyState.Disarmed, MovementOwner: Bajols.Protocol.MovementOwner.Pc, ArmingBlockers: ArmingBlockers.None } };
 
     /// <summary>
     /// Whether fresh owned status and held input permit requesting a non-emergency failsafe clear.
     /// </summary>
-    public bool CanClear => enableHeld && Snapshot is { StatusFresh: true, CompatibleCapabilities: true, Status: { HasUnknownControlValues: false, MovementOwner: Bajols.Protocol.MovementOwner.Pc, SafetyState: SafetyState.CommandLossFailsafe or SafetyState.FaultFailsafe } };
+    public bool CanClear => InputEnableHeld && Snapshot is { StatusFresh: true, CompatibleCapabilities: true, Status: { HasUnknownControlValues: false, MovementOwner: Bajols.Protocol.MovementOwner.Pc, SafetyState: SafetyState.CommandLossFailsafe or SafetyState.FaultFailsafe } };
+
+    private bool InputEnableHeld => enableHeld || (GamepadInputHeld && input.TrySample(out _));
 
     /// <summary>
     /// Whether a session exists for explicit control actions; individual commands retain their own checks.

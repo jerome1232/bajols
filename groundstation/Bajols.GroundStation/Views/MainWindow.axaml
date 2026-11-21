@@ -32,6 +32,7 @@
           <TextBlock Text="{Binding Connection}" Foreground="#F2C879" VerticalAlignment="Center" />
           <Button Content="Connect" Command="{Binding ConnectCommand}" />
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+          <Button x:Name="ControlsButton" Content="Controls" Click="ShowControls" />
         </StackPanel>
       </Border>
     </Grid>
@@ -50,21 +51,21 @@
                     CornerRadius="6" Padding="8" HorizontalAlignment="Center">
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="16">
                 <views:MovementPad x:Name="MovementPad" Width="196" Height="168"
-                                   Forward="{Binding Forward, Mode=TwoWay}" Yaw="{Binding Yaw, Mode=TwoWay}" />
+                                   Dive="{Binding Dive, Mode=TwoWay}" Yaw="{Binding Yaw, Mode=TwoWay}" />
                 <Grid Grid.Column="1" Width="112" Height="168">
-                  <Border x:Name="DiveNeutralMark" Width="36" Height="2" Background="#F2C879"
+                  <Border x:Name="ThrottleNeutralMark" Width="36" Height="2" Background="#F2C879"
                           HorizontalAlignment="Left" Margin="6,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" />
-                  <Slider x:Name="DiveControl" Orientation="Vertical" Height="168" Width="48"
-                          Minimum="-1" Maximum="1" Value="{Binding Dive, Mode=TwoWay}"
-                          IsDirectionReversed="True" TickFrequency="0.2" TickPlacement="Outside"
+                  <Slider x:Name="ThrottleControl" Orientation="Vertical" Height="168" Width="48"
+                          Minimum="-1" Maximum="1" Value="{Binding Forward, Mode=TwoWay}"
+                          TickFrequency="0.2" TickPlacement="Outside"
                           Foreground="#69CCC4" HorizontalAlignment="Left"
-                          AutomationProperties.Name="Dive and pitch effort. Up negative, down positive." />
+                          AutomationProperties.Name="Throttle effort. Up ahead, down reverse." />
                   <Canvas IsHitTestVisible="False">
-                    <TextBlock x:Name="DiveUpPercentage" Canvas.Left="46" Canvas.Top="7" Width="30"
-                               Text="{Binding DiveUpPercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
-                    <TextBlock Canvas.Left="50" Canvas.Top="77" Text="PITCH" FontSize="10" Foreground="#A9BAC8" />
-                    <TextBlock x:Name="DiveDownPercentage" Canvas.Left="46" Canvas.Top="147" Width="30"
-                               Text="{Binding DiveDownPercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
+                    <TextBlock x:Name="ThrottleAheadPercentage" Canvas.Left="46" Canvas.Top="7" Width="30"
+                               Text="{Binding ThrottleAheadPercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
+                    <TextBlock Canvas.Left="46" Canvas.Top="77" Text="THROTTLE" FontSize="10" Foreground="#A9BAC8" />
+                    <TextBlock x:Name="ThrottleReversePercentage" Canvas.Left="46" Canvas.Top="147" Width="30"
+                               Text="{Binding ThrottleReversePercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
                   </Canvas>
                 </Grid>
               </Grid>
