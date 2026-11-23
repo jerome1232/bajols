@@ -242,6 +242,24 @@ ballast outputs off.
    Disarm, loss of PC ownership, command timeout and an opened D29 loop each
    stop motor output and center the servos.
 
+### Mega: use the RF buoy and RS-422 tether
+
+Append `-DBAJOLS_BCP_USE_SERIAL1` inside the quoted
+`compiler.cpp.extra_flags` value of the writable Mega build command. Use the
+standard writable runtime for monitoring or the actuator bench build for
+dry-bench control. Keep the provisioned EEPROM base and vehicle ID.
+
+Upload over the Mega's USB port using the matching build output directory.
+The flag moves BCP to **Serial1 at 115200 baud, 8N1**. Connect **D18/TX1** to the
+vehicle-side RS-422 line driver's input and **D19/RX1** to its receiver output.
+Use a UART interface compatible with the Mega's 5 V logic and follow the
+[differential pair and reference wiring](../Documentation/Wiring/RF_BUOY_TETHER.md#tether-endpoint-wiring).
+
+Select the **shore ESP32's USB port** in the ground station and keep the
+Mega's provisioned ID as `expected_vehicle_id`. Build the two ESP32s using
+the [radio bridge instructions](Experimental/BcpRadioBridge/README.md).
+For direct USB BCP, rebuild and upload without `BAJOLS_BCP_USE_SERIAL1`.
+
 ## ESP32: initial provisioning
 
 This procedure assumes an **unencrypted classic ESP32 with 4 MB flash** and the

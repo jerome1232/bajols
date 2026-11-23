@@ -40,8 +40,9 @@ Flash the corresponding build to each ESP32. Select the shore adapter's serial
 port in the ground station and use the expected ID of the actual BCP vehicle or
 test peer. For a USB-to-USB bench test, wire the buoy's UART to a 3.3 V USB-UART
 adapter with TX/RX crossed and common ground, then attach a BCP test peer to
-that port. A tethered vehicle needs a BCP serial endpoint on the UART used by
-its line transceiver. The bridge firmware runs on the shore and buoy boards.
+that port. For a tethered Mega, build its vehicle firmware with
+[`BAJOLS_BCP_USE_SERIAL1`](../../BUILD_AND_PROVISION.md#mega-use-the-rf-buoy-and-rs-422-tether)
+and connect Serial1 to the vehicle-side line transceiver.
 
 ## RF transport
 

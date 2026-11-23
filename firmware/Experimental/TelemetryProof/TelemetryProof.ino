@@ -49,6 +49,9 @@ void loop() {
 #if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
 #error "BCP bench control and legacy FlySky control are separate builds."
 #endif
+#if defined(BAJOLS_BCP_USE_SERIAL1)
+#error "BAJOLS_BCP_USE_SERIAL1 requires the BCP firmware."
+#endif
 #if !defined(__AVR_ATmega2560__)
 #error \
     "Legacy FlySky/actuator control is ATmega2560-only; use the default BCP build on ESP32."

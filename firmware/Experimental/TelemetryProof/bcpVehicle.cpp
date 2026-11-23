@@ -75,8 +75,16 @@ BenchHardware bench_hardware;
 #else
 bcp::MonitoringRuntime runtime(journal, kTelemetryMask);
 #endif
-// Serial is exclusively binary BCP; debug printing is not enabled on this path.
-bcp::BasicArduinoSerialPort<decltype(Serial)> port(Serial);
+// The selected port is reserved for binary BCP.
+#if defined(BAJOLS_BCP_USE_SERIAL1)
+#if !defined(__AVR_ATmega2560__)
+#error "BAJOLS_BCP_USE_SERIAL1 requires the Mega 2560."
+#endif
+auto& bcp_serial = Serial1;
+#else
+auto& bcp_serial = Serial;
+#endif
+bcp::BasicArduinoSerialPort<decltype(Serial)> port(bcp_serial);
 // Wrapping monotonic onboard time.
 bcp::ArduinoMillisecondClock clock_source;
 // Last new instrument acquisition, independent of serial transmission times.
@@ -115,7 +123,7 @@ void Begin() {
 #if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
   bench_hardware.Begin();
 #endif
-  Serial.begin(115200);
+  bcp_serial.begin(115200, SERIAL_8N1);
   if (bcp::InitializeBoardStorage(storage)) {
     runtime.Begin();
   }

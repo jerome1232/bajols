@@ -18,6 +18,7 @@ both platforms before attempting a live serial connection.
 | `BAJOLS_BCP_DEMO_DEPTH_MM` | Fixed simulated depth in millimetres. Requires the demo flag and defaults to `2000` (2 m) |
 | `BAJOLS_BCP_ENABLE_EEPROM_WRITES` | Permits verified EEPROM/NVS boot/latch journal writes; requires explicit `BAJOLS_BCP_EEPROM_BASE` and `BAJOLS_BCP_WRITE_TIMEOUT_MS` |
 | `BAJOLS_BCP_ENABLE_BENCH_CONTROL` | Mega-only dry bench control for propulsion and control surfaces. Requires writable identity storage and physical switches. |
+| `BAJOLS_BCP_USE_SERIAL1` | Mega-only BCP over Serial1 (D18 TX, D19 RX) for the RS-422 tether. See the [tether build guide](../../BUILD_AND_PROVISION.md#mega-use-the-rf-buoy-and-rs-422-tether). |
 | `BAJOLS_ENABLE_LEGACY_CONTROL` | Mega-only legacy FlySky-to-actuator experiment; excludes the BCP adapter entirely |
 | `BAJOLS_LEGACY_SHIELD_ENGINE_PWM` | With the legacy flag, routes main motor PWM to PCA9685 channel 2 and pump enable to channel 3 |
 

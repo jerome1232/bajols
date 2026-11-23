@@ -193,10 +193,10 @@ not replace that identity or provide command authorization.
 
 The [bridge sketch](../../firmware/Experimental/BcpRadioBridge/README.md#build)
 provides ESP32 shore and buoy builds. The existing desktop serial transport can
-open the shore adapter as a normal BCP port. The current vehicle sketch binds
-BCP to `Serial`; a transceiver connected to another vehicle UART requires
-firmware transport selection. Physical tether and RF performance validation
-remain open.
+open the shore adapter as a normal BCP port. The
+[Mega tether build](../../firmware/BUILD_AND_PROVISION.md#mega-use-the-rf-buoy-and-rs-422-tether)
+binds vehicle BCP to Serial1 (D18 TX, D19 RX). Physical tether and RF
+performance validation remain open.
 
 Before wiring/implementation, settle the intended shore–buoy distance, tether
 length, exact carrier/module revisions, SPI/interrupt/UART pins, 3.3 V power budget,
