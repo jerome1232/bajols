@@ -353,10 +353,10 @@ image verification is no longer applicable after the first runtime advance.
 
 ## Connect the ground station
 
-These commands describe the current direct USB connection. The planned
-[RFM69HCW buoy and tether arrangement](../Documentation/Wiring/RF_BUOY_TETHER.md)
-adds separate shore/buoy bridge firmware and tether UART selection; those are not
-yet implemented. Submarine identity and BCP authorization remain end to end.
+For direct USB, use the vehicle board's USB serial port. For the experimental
+RF tether, use the shore ESP32's USB serial port and the submarine's provisioned
+ID. Submarine identity and BCP authorization remain end to end.
+[Mega RF tether setup](#mega-use-the-rf-buoy-and-rs-422-tether)
 
 Copy the appropriate bundle's vehicle ID into a separate YAML configuration:
 
@@ -368,15 +368,16 @@ expected_vehicle_id: "COPY_THE_32_HEX_CHARACTERS_FROM_THE_MANIFEST"
 baud_rate: 115200
 ```
 
-Use the actual port: a Mega commonly appears as `/dev/ttyACM0`, a USB-UART ESP32 as
-`/dev/ttyUSB0`, and Windows boards as `COM3` or similar. Do not use the bundled
-simulator ID. Run:
+A Mega commonly appears as `/dev/ttyACM0`, a USB-UART ESP32 as `/dev/ttyUSB0`,
+and Windows boards as `COM3` or similar. Use the physical vehicle ID from the
+manifest. Open the ground station and use **Load YAML…** to select the file while
+disconnected. To supply the file at startup from a source checkout, run:
 
 ```sh
 dotnet run --project groundstation/Bajols.GroundStation -- --config /absolute/path/to/vehicle.yaml
 ```
 
-Close other serial applications and press Connect. Supported telemetry types can
+Close other serial applications and press **Connect**. Supported telemetry types can
 be reported unavailable until drivers exist; add `-DBAJOLS_BCP_DEMO_TELEMETRY` to
 the writable build flags only for explicitly simulated instrument testing. The
 standard writable runtime keeps Arm unavailable and retains an initially latched

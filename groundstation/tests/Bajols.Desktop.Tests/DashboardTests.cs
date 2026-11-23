@@ -33,7 +33,7 @@ public sealed class DashboardTests
         {
             UseHeadlessDrawing = false
         }).SetupWithoutStarting();
-        var vm = new MainWindowViewModel(() => new StationConfiguration(), TimeProvider.System);
+        var vm = new MainWindowViewModel();
         var window = new MainWindow
         {
             DataContext = vm
@@ -43,6 +43,7 @@ public sealed class DashboardTests
         {
             Assert.Equal(ConnectionState.Disconnected, vm.Connection);
             Assert.Equal("UNKNOWN", vm.VehicleState);
+            AssertConfigurationLoading(window, vm);
             Assert.False(vm.ArmCommand.CanExecute(null));
             Assert.False(vm.DisarmCommand.CanExecute(null));
             AssertDashboardFits(window);
@@ -84,17 +85,22 @@ public sealed class DashboardTests
             var buoyancyBounds = buoyancyControl.TranslatePoint(new Point(0, 0), window)!.Value;
             Assert.True(buoyancyBounds.X > throttleBounds.X);
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("Hold Space") == true);
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            AssertThemeSwitching(window);
+            window.Width = defaultWidth;
+            window.Height = defaultHeight;
             Wait(vm.ConnectAsync(), vm);
             Until(() => vm.LinkFreshness == "CONFIRMED", vm);
+            Assert.False(window.FindControl<Button>("LoadConfigButton")!.IsEnabled);
             Assert.Equal("Disarmed", vm.VehicleState);
             AssertDashboardFits(window);
-            Until(() => vm.Depth.EndsWith("SIM", StringComparison.Ordinal), vm);
+            var attitudeScene = window.GetVisualDescendants().OfType<SubmarineScene>().Single();
+            Until(() => vm.Depth.EndsWith("SIM", StringComparison.Ordinal) && attitudeScene.HasAttitude, vm);
             Assert.True(vm.HasAttitude);
             Assert.True(vm.HasDepth);
             Assert.Equal(2, vm.DepthMetres);
             Assert.InRange(vm.DepthIndicatorOffset, 27, 28);
-            var attitudeScene = window.GetVisualDescendants().OfType<SubmarineScene>().Single();
-            Assert.True(attitudeScene.HasAttitude);
             Assert.Equal(316, attitudeScene.Bounds.Height);
             Assert.True(attitudeScene.TopOverlayHeight > 0);
             Assert.Equal(vm.PitchAngle, attitudeScene.Pitch);
@@ -173,6 +179,7 @@ public sealed class DashboardTests
             vm.RestoreDepthCommand.Execute(null);
             Until(() => vm.HasDepth, vm);
             Wait(vm.DisconnectAsync(), vm);
+            Assert.True(window.FindControl<Button>("LoadConfigButton")!.IsEnabled);
             Assert.Equal("UNKNOWN", vm.VehicleState);
             Wait(vm.ConnectAsync(), vm);
             Until(() => vm.LinkFreshness == "CONFIRMED", vm);
@@ -349,6 +356,79 @@ public sealed class DashboardTests
         }
 
         Assert.Empty(window.GetVisualDescendants().OfType<ScrollViewer>());
+    }
+
+    private static void AssertConfigurationLoading(MainWindow window, MainWindowViewModel vm)
+    {
+        Assert.True(window.FindControl<Button>("LoadConfigButton")!.IsEnabled);
+        Assert.False(vm.ConnectCommand.CanExecute(null));
+        Assert.Contains("Load a YAML configuration", vm.StatusMessage);
+
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, "schema_version: 2");
+            vm.LoadConfiguration(path);
+            Assert.Contains("Unsupported schema_version", vm.StatusMessage);
+            Assert.False(vm.ConnectCommand.CanExecute(null));
+
+            File.WriteAllText(path, "transport: serial\nport: /dev/vehicle\nexpected_vehicle_id: '01010101010101010101010101010101'");
+            vm.LoadConfiguration(path);
+            Assert.True(vm.ConnectCommand.CanExecute(null));
+            Assert.False(vm.IsSimulation);
+            Assert.Contains("/dev/vehicle", vm.StatusMessage);
+
+            File.WriteAllText(path, "transport: simulator\ndead_zone: 0.01\ninput_freshness_ms: 100");
+            vm.HoldInput(true);
+            vm.Forward = 0.5;
+            vm.LoadConfiguration(path);
+            Assert.Equal(0, vm.Forward);
+            Assert.True(vm.IsSimulation);
+            Assert.Equal(ConnectionState.Disconnected, vm.Connection);
+            Assert.Contains(Path.GetFileName(path), vm.StatusMessage);
+
+            File.WriteAllText(path, "transport: unsupported");
+            vm.LoadConfiguration(path);
+            Assert.Contains("Configuration error", vm.StatusMessage);
+            Assert.True(vm.IsSimulation);
+            Assert.True(vm.ConnectCommand.CanExecute(null));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static void AssertThemeSwitching(MainWindow window)
+    {
+        var picker = window.FindControl<ComboBox>("ThemePicker")!;
+        var scene = window.GetVisualDescendants().OfType<SubmarineScene>().Single();
+        var title = window.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "BAJOLS");
+        var originalFont = title.FontFamily;
+
+        foreach (var (index, background, phosphor) in new[]
+        {
+            (1, "#09130E", "#83F49C"),
+            (2, "#171006", "#FFC36A"),
+            (0, "#101820", "Transparent")
+        })
+        {
+            picker.SelectedIndex = index;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(index == 0 ? "Dark" : index == 1 ? "Green CRT" : "Amber CRT", window.ActualThemeVariant.Key.ToString());
+            Assert.Equal(Color.Parse(background), Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
+            Assert.Equal(Color.Parse(phosphor), scene.Phosphor!.Color);
+            if (index == 0)
+            {
+                Assert.Equal(originalFont, title.FontFamily);
+            }
+            else
+            {
+                Assert.Contains("Mono", title.FontFamily.Name);
+            }
+
+            AssertDashboardFits(window);
+        }
     }
 
     /// <summary>

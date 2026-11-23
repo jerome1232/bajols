@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Bajols.GroundStation.ViewModels;
 using Bajols.Input;
@@ -55,6 +58,67 @@ public partial class MainWindow : Window
     {
         Model?.ReleaseInput();
         await new ControlsDialog().ShowDialog(this);
+    }
+
+    private async void ChooseConfiguration(object? sender, RoutedEventArgs e)
+    {
+        if (Model is not { CanLoadConfiguration: true } model)
+        {
+            return;
+        }
+
+        model.ReleaseInput();
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Load ground station configuration",
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("YAML configuration") { Patterns = ["*.yaml", "*.yml"] },
+                    FilePickerFileTypes.All
+                ]
+            });
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            using var file = files[0];
+            if (!model.CanLoadConfiguration)
+            {
+                return;
+            }
+
+            if (file.TryGetLocalPath() is { } path)
+            {
+                model.LoadConfiguration(path);
+            }
+            else
+            {
+                model.ReportConfigurationError("Select a local YAML file.");
+            }
+        }
+        catch (Exception failure)
+        {
+            if (model.CanLoadConfiguration)
+            {
+                model.ReportConfigurationError(failure.Message);
+            }
+        }
+    }
+
+    private void ChangeTheme(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox picker && Application.Current is { } app)
+        {
+            app.RequestedThemeVariant = picker.SelectedIndex switch
+            {
+                1 => StationThemes.Green,
+                2 => StationThemes.Amber,
+                _ => ThemeVariant.Dark
+            };
+        }
     }
 
     private void PollGamepad()

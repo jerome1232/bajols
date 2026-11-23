@@ -14,7 +14,11 @@ public partial class App : Application
     /// <summary>
     /// Loads application resources and the Avalonia theme.
     /// </summary>
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        StationThemes.Register(Resources);
+    }
 
     /// <summary>
     /// Creates the desktop window and view model after Avalonia platform initialization.

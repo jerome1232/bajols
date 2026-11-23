@@ -5,15 +5,16 @@
         x:Class="Bajols.GroundStation.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="BAJOLS Ground Station" Width="1440" Height="1000"
-        MinWidth="1280" MinHeight="1000" Background="#101820">
+        MinWidth="1280" MinHeight="1000" Background="{DynamicResource StationBackground}"
+        FontFamily="{DynamicResource StationFont}">
   <Window.Styles>
     <Style Selector="Border.panel">
-      <Setter Property="Background" Value="#1B2833" />
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="{DynamicResource StationPanel}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource StationPanelRadius}" />
       <Setter Property="Padding" Value="16" />
     </Style>
     <Style Selector="TextBlock.label">
-      <Setter Property="Foreground" Value="#A9BAC8" />
+      <Setter Property="Foreground" Value="{DynamicResource StationMuted}" />
       <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="TextBlock.value">
@@ -29,15 +30,23 @@
       </StackPanel>
       <Border Grid.Column="1" Classes="panel" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="12">
-          <TextBlock Text="{Binding Connection}" Foreground="#F2C879" VerticalAlignment="Center" />
+          <TextBlock Text="Theme" VerticalAlignment="Center" />
+          <ComboBox x:Name="ThemePicker" SelectedIndex="0" MinWidth="164"
+                    AutomationProperties.Name="Theme" SelectionChanged="ChangeTheme">
+            <ComboBoxItem Content="Modern" />
+            <ComboBoxItem Content="Green CRT" />
+            <ComboBoxItem Content="Amber CRT" />
+          </ComboBox>
+          <TextBlock Text="{Binding Connection}" Foreground="{DynamicResource StationNotice}" VerticalAlignment="Center" />
+          <Button x:Name="LoadConfigButton" Content="Load YAML…" IsEnabled="{Binding CanLoadConfiguration}" Click="ChooseConfiguration" />
           <Button Content="Connect" Command="{Binding ConnectCommand}" />
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
           <Button x:Name="ControlsButton" Content="Controls" Click="ShowControls" />
         </StackPanel>
       </Border>
     </Grid>
-    <Border Grid.Row="1" Background="#342D20" CornerRadius="8" Padding="12">
-      <TextBlock Text="{Binding StatusMessage}" Foreground="#F2C879" TextWrapping="Wrap" />
+    <Border Grid.Row="1" Background="{DynamicResource StationNoticeBackground}" CornerRadius="{DynamicResource StationPanelRadius}" Padding="12">
+      <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource StationNotice}" TextWrapping="Wrap" />
     </Border>
     <Grid Grid.Row="2" RowDefinitions="Auto,*" ColumnDefinitions="*" RowSpacing="12" ColumnSpacing="12">
       <Border x:Name="AttitudePanel" Classes="panel">
@@ -47,31 +56,31 @@
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
           <TextBlock Text="CONTROL" Classes="label" VerticalAlignment="Center" />
           <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">
-            <Border x:Name="MovementControlBox" Grid.Column="1" BorderBrush="#4B6C7D" BorderThickness="1"
-                    CornerRadius="6" Padding="8" HorizontalAlignment="Center">
+            <Border x:Name="MovementControlBox" Grid.Column="1" BorderBrush="{DynamicResource StationOutline}" BorderThickness="1"
+                    CornerRadius="{DynamicResource StationInsetRadius}" Padding="8" HorizontalAlignment="Center">
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="16">
                 <views:MovementPad x:Name="MovementPad" Width="196" Height="168"
                                    Dive="{Binding Dive, Mode=TwoWay}" Yaw="{Binding Yaw, Mode=TwoWay}" />
                 <Grid Grid.Column="1" Width="112" Height="168">
-                  <Border x:Name="ThrottleNeutralMark" Width="36" Height="2" Background="#F2C879"
+                  <Border x:Name="ThrottleNeutralMark" Width="36" Height="2" Background="{DynamicResource StationNotice}"
                           HorizontalAlignment="Left" Margin="6,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" />
                   <Slider x:Name="ThrottleControl" Orientation="Vertical" Height="168" Width="48"
                           Minimum="-1" Maximum="1" Value="{Binding Forward, Mode=TwoWay}"
                           TickFrequency="0.2" TickPlacement="Outside"
-                          Foreground="#69CCC4" HorizontalAlignment="Left"
+                          Foreground="{DynamicResource StationAccent}" HorizontalAlignment="Left"
                           AutomationProperties.Name="Throttle effort. Up ahead, down reverse." />
                   <Canvas IsHitTestVisible="False">
                     <TextBlock x:Name="ThrottleAheadPercentage" Canvas.Left="46" Canvas.Top="7" Width="30"
-                               Text="{Binding ThrottleAheadPercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
-                    <TextBlock Canvas.Left="46" Canvas.Top="77" Text="THROTTLE" FontSize="10" Foreground="#A9BAC8" />
+                               Text="{Binding ThrottleAheadPercentage}" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource StationAccent}" />
+                    <TextBlock Canvas.Left="46" Canvas.Top="77" Text="THROTTLE" FontSize="10" Foreground="{DynamicResource StationMuted}" />
                     <TextBlock x:Name="ThrottleReversePercentage" Canvas.Left="46" Canvas.Top="147" Width="30"
-                               Text="{Binding ThrottleReversePercentage}" TextAlignment="Center" FontSize="11" Foreground="#69CCC4" />
+                               Text="{Binding ThrottleReversePercentage}" TextAlignment="Center" FontSize="11" Foreground="{DynamicResource StationAccent}" />
                   </Canvas>
                 </Grid>
               </Grid>
             </Border>
-            <Border x:Name="BuoyancyControlBox" Grid.Column="2" BorderBrush="#4B6C7D" BorderThickness="1"
-                    CornerRadius="6" Padding="8" Width="140" VerticalAlignment="Stretch"
+            <Border x:Name="BuoyancyControlBox" Grid.Column="2" BorderBrush="{DynamicResource StationOutline}" BorderThickness="1"
+                    CornerRadius="{DynamicResource StationInsetRadius}" Padding="8" Width="140" VerticalAlignment="Stretch"
                     HorizontalAlignment="Left" Margin="16,0,0,0">
               <Grid RowDefinitions="Auto,*" RowSpacing="6">
                 <TextBlock Text="BUOYANCY" Classes="label" FontSize="11" HorizontalAlignment="Center" />
@@ -80,17 +89,17 @@
                           Minimum="-1" Maximum="1" TickFrequency="1" TickPlacement="Outside"
                           IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1"
                           Value="{Binding BuoyancyPosition, Mode=TwoWay}"
-                          Foreground="#69CCC4" Width="36" VerticalAlignment="Stretch"
+                          Foreground="{DynamicResource StationAccent}" Width="36" VerticalAlignment="Stretch"
                           AutomationProperties.Name="Buoyancy: positive up, neutral middle, negative down" />
-                  <TextBlock Grid.Column="1" Text="Positive" VerticalAlignment="Top" Margin="0,6,0,0" FontSize="12" Foreground="#A9BAC8" />
-                  <TextBlock Grid.Column="1" Grid.Row="1" Text="Neutral" VerticalAlignment="Center" FontSize="12" Foreground="#A9BAC8" />
-                  <TextBlock Grid.Column="1" Grid.Row="2" Text="Negative" VerticalAlignment="Bottom" Margin="0,0,0,6" FontSize="12" Foreground="#A9BAC8" />
+                  <TextBlock Grid.Column="1" Text="Positive" VerticalAlignment="Top" Margin="0,6,0,0" FontSize="12" Foreground="{DynamicResource StationMuted}" />
+                  <TextBlock Grid.Column="1" Grid.Row="1" Text="Neutral" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource StationMuted}" />
+                  <TextBlock Grid.Column="1" Grid.Row="2" Text="Negative" VerticalAlignment="Bottom" Margin="0,0,0,6" FontSize="12" Foreground="{DynamicResource StationMuted}" />
                 </Grid>
               </Grid>
             </Border>
           </Grid>
-          <Border x:Name="ArmActionsBox" Grid.Row="3" BorderBrush="#4B6C7D" BorderThickness="1"
-                  CornerRadius="6" Padding="8">
+          <Border x:Name="ArmActionsBox" Grid.Row="3" BorderBrush="{DynamicResource StationOutline}" BorderThickness="1"
+                  CornerRadius="{DynamicResource StationInsetRadius}" Padding="8">
             <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
               <Button Content="Arm" Command="{Binding ArmCommand}" HorizontalAlignment="Stretch" />
               <Button Grid.Column="1" Content="Disarm" Command="{Binding DisarmCommand}" HorizontalAlignment="Stretch" />

@@ -6,7 +6,7 @@ namespace Bajols.Simulator;
 public sealed class SimulatedVehicle
 {
     /// <summary>
-    /// Stable opaque identity used by the bundled simulated-vehicle profile.
+    /// Stable opaque identity used by the example simulator configuration.
     /// </summary>
     public static readonly OpaqueId128 DefaultVehicleId = OpaqueId128.FromBytes(Convert.FromHexString("42414A4F4C532D53494D554C41544F52"));
 

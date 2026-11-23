@@ -12,7 +12,10 @@ From `groundstation/`, run `dotnet test Bajols.GroundStation.slnx --configuratio
 - **Bajols.Desktop.Tests** loads the actual XAML headlessly, confirms initial unknown
   state, connects the simulator, qualifies/arms, observes telemetry, releases input,
   clears the presentation on disconnect and verifies emergency state survives reconnect.
-  It also checks the live 16-point heading labels, neutral-check progress binding,
+  It also checks runtime YAML loading, validation failures preserving the active
+  configuration, and the load button's availability before and after connection.
+  Dashboard coverage includes theme switching and restoration, the live 16-point
+  heading labels, neutral-check progress binding,
   depth marker/limit colour and invalid-depth handling, simulated object placement,
   expanded object projection, and visible control layout at default/minimum sizes.
   Integration tests exercise exact object expiry/fading, source snapshot replacement,

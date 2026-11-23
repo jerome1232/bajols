@@ -2,7 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Bajols.GroundStation.Views.ControlsDialog"
         Title="Controls" Width="660" SizeToContent="Height" MaxHeight="620"
-        WindowStartupLocation="CenterOwner" CanResize="False" Background="#101820">
+        WindowStartupLocation="CenterOwner" CanResize="False" Background="{DynamicResource StationBackground}"
+        FontFamily="{DynamicResource StationFont}">
   <ScrollViewer>
     <StackPanel Margin="24" Spacing="16">
       <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
@@ -34,16 +35,16 @@
         <TextBlock Grid.Row="8" Text="Emergency stop" />
         <TextBlock Grid.Row="8" Grid.Column="1" Text="Emergency stop button" />
         <TextBlock Grid.Row="8" Grid.Column="2" Text="A (south face button)" />
-        <TextBlock Grid.Row="9" Text="Positive / negative buoyancy" />
+        <TextBlock Grid.Row="9" Text="Positive / negative buoyancy" TextWrapping="Wrap" />
         <TextBlock Grid.Row="9" Grid.Column="1" Text="Buoyancy slider" />
         <TextBlock Grid.Row="9" Grid.Column="2" Text="D-pad up / down" />
         <TextBlock Grid.Row="10" Text="Neutral buoyancy" />
         <TextBlock Grid.Row="10" Grid.Column="1" Text="Buoyancy slider center" />
         <TextBlock Grid.Row="10" Grid.Column="2" Text="D-pad left / right" />
       </Grid>
-      <TextBlock Foreground="#A9BAC8" TextWrapping="Wrap"
+      <TextBlock Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap"
                  Text="Center the movement controls while holding input enable to qualify as neutral. Hold left shoulder to select buoyancy with the D-pad." />
-      <TextBlock Foreground="#A9BAC8" TextWrapping="Wrap"
+      <TextBlock Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap"
                  Text="Opening this dialog releases held input. After closing it, press Space or left shoulder again to resume input." />
       <Button x:Name="CloseControlsButton" Content="Close" IsCancel="True"
               HorizontalAlignment="Right" Click="CloseDialog" />

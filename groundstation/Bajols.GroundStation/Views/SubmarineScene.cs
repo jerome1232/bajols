@@ -165,12 +165,28 @@ public sealed class SubmarineScene : Control
     }
 
     /// <summary>
-    /// Registers repainting when telemetry availability or either attitude angle changes.
+    /// Controls the tint and pixel rendering of the CRT display.
     /// </summary>
+    public static readonly StyledProperty<ISolidColorBrush?> PhosphorProperty =
+        AvaloniaProperty.Register<SubmarineScene, ISolidColorBrush?>(nameof(Phosphor));
+
+    /// <summary>
+    /// The CRT phosphor tint, or a transparent brush for the modern display.
+    /// </summary>
+    public ISolidColorBrush? Phosphor
+    {
+        get => GetValue(PhosphorProperty);
+        set => SetValue(PhosphorProperty, value);
+    }
+
+    private Color? PhosphorColor => Phosphor is { Color.A: > 0 } brush ? brush.Color : null;
+
+    private static readonly Pen ScanlinePen = new(new SolidColorBrush(Color.FromArgb(42, 0, 0, 0)), 1);
+
     static SubmarineScene()
     {
         AffectsRender<SubmarineScene>(HeadingProperty, PitchProperty, HasAttitudeProperty,
-            HasForwardRangeProperty, ForwardObstaclesProperty, ObstaclePulseProperty, TopOverlayHeightProperty);
+            HasForwardRangeProperty, ForwardObstaclesProperty, ObstaclePulseProperty, TopOverlayHeightProperty, PhosphorProperty);
     }
 
     /// <summary>
@@ -272,6 +288,8 @@ public sealed class SubmarineScene : Control
             return;
         }
 
+        Color? phosphor = PhosphorColor;
+        using (context.PushRenderOptions(new RenderOptions { EdgeMode = phosphor.HasValue ? EdgeMode.Aliased : EdgeMode.Unspecified }))
         using (context.PushClip(new Rect(Bounds.Size)))
         {
             DrawCompass(context);
@@ -301,6 +319,14 @@ public sealed class SubmarineScene : Control
                 using (context.PushOpacity(0.55))
                 {
                     DrawVehicle(context, Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2));
+                }
+            }
+
+            if (phosphor.HasValue)
+            {
+                for (double y = TopInset + 0.5; y < Bounds.Height; y += 4)
+                {
+                    context.DrawLine(ScanlinePen, new Point(0, y), new Point(Bounds.Width, y));
                 }
             }
 
@@ -396,26 +422,33 @@ public sealed class SubmarineScene : Control
     private void DrawCompass(DrawingContext context)
     {
         const float radius = 3.2f;
+        Pen gridPen = GridPen;
+        Pen axisPen = AxisPen;
+        if (PhosphorColor is { } phosphor)
+        {
+            gridPen = new Pen(new SolidColorBrush(phosphor, 0.25), 1);
+            axisPen = new Pen(new SolidColorBrush(phosphor, 0.45), 1);
+        }
         for (int i = 0; i < 64; i++)
         {
             double a = i * 2 * Math.PI / 64;
             double b = (i + 1) * 2 * Math.PI / 64;
-            context.DrawLine(GridPen,
+            context.DrawLine(gridPen,
                 Project(new Vector3((float)Math.Cos(a) * radius, FloorHeight, (float)Math.Sin(a) * radius)),
                 Project(new Vector3((float)Math.Cos(b) * radius, FloorHeight, (float)Math.Sin(b) * radius)));
         }
 
         for (int i = -2; i <= 2; i++)
         {
-            context.DrawLine(GridPen, Project(new Vector3(i, FloorHeight, -2.5f)),
+            context.DrawLine(gridPen, Project(new Vector3(i, FloorHeight, -2.5f)),
                 Project(new Vector3(i, FloorHeight, 2.5f)));
-            context.DrawLine(GridPen, Project(new Vector3(-2.5f, FloorHeight, i)),
+            context.DrawLine(gridPen, Project(new Vector3(-2.5f, FloorHeight, i)),
                 Project(new Vector3(2.5f, FloorHeight, i)));
         }
 
-        context.DrawLine(AxisPen, Project(new Vector3(0, FloorHeight, -radius)),
+        context.DrawLine(axisPen, Project(new Vector3(0, FloorHeight, -radius)),
             Project(new Vector3(0, FloorHeight, radius)));
-        context.DrawLine(AxisPen, Project(new Vector3(-radius, FloorHeight, 0)),
+        context.DrawLine(axisPen, Project(new Vector3(-radius, FloorHeight, 0)),
             Project(new Vector3(radius, FloorHeight, 0)));
     }
 
@@ -428,19 +461,20 @@ public sealed class SubmarineScene : Control
         Point south = Project(new Vector3(0, FloorHeight, -3.2f));
         Point west = Project(new Vector3(-3.2f, FloorHeight, 0));
         Point east = Project(new Vector3(3.2f, FloorHeight, 0));
-        DrawLabel(context, "N", new Point(north.X, TopInset + 10), NorthBrush);
-        DrawLabel(context, "S", new Point(south.X, Bounds.Height - 10), LabelBrush);
-        DrawLabel(context, "W", new Point(west.X - 16, west.Y), LabelBrush);
-        DrawLabel(context, "E", new Point(east.X + 16, east.Y), LabelBrush);
+        IBrush labelBrush = PhosphorColor.HasValue ? Phosphor! : LabelBrush;
+        DrawLabel(context, "N", new Point(north.X, TopInset + 10), PhosphorColor.HasValue ? labelBrush : NorthBrush);
+        DrawLabel(context, "S", new Point(south.X, Bounds.Height - 10), labelBrush);
+        DrawLabel(context, "W", new Point(west.X - 16, west.Y), labelBrush);
+        DrawLabel(context, "E", new Point(east.X + 16, east.Y), labelBrush);
     }
 
     /// <summary>
     /// Centers a short compass label in screen space using the dashboard font.
     /// </summary>
-    private static void DrawLabel(DrawingContext context, string label, Point center, IBrush brush)
+    private void DrawLabel(DrawingContext context, string label, Point center, IBrush brush)
     {
         var text = new FormattedText(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            Typeface.Default, 12, brush);
+            PhosphorColor.HasValue ? new Typeface(StationThemes.Monospace) : Typeface.Default, 12, brush);
         context.DrawText(text, new Point(center.X - text.Width / 2, center.Y - text.Height / 2));
     }
 
@@ -450,21 +484,37 @@ public sealed class SubmarineScene : Control
     private void DrawVehicle(DrawingContext context, Quaternion rotation)
     {
         var projected = new List<ProjectedFacet>(Mesh.Length);
+        Color? phosphor = PhosphorColor;
+
+        Point ProjectHull(Vector3 vertex)
+        {
+            Point point = Project(vertex);
+            const double pixel = 3;
+            return phosphor.HasValue
+                ? new Point(Math.Round(point.X / pixel) * pixel, Math.Round(point.Y / pixel) * pixel)
+                : point;
+        }
+
         foreach (Facet facet in Mesh)
         {
             Vector3[] world = facet.Vertices.Select(vertex => Vector3.Transform(vertex, rotation)).ToArray();
             Vector3 normal = Vector3.Normalize(Vector3.Cross(world[1] - world[0], world[2] - world[0]));
             double illumination = 0.3 + 0.7 * Math.Max(0, Vector3.Dot(normal, Light));
             Color color = facet.Color;
+            if (phosphor is { } tint)
+            {
+                illumination = Math.Round(illumination * 5) / 5 * color.G / 255;
+                color = tint;
+            }
             var brush = new SolidColorBrush(Color.FromRgb((byte)(color.R * illumination),
                 (byte)(color.G * illumination), (byte)(color.B * illumination)));
             var geometry = new StreamGeometry();
             using (StreamGeometryContext path = geometry.Open())
             {
-                path.BeginFigure(Project(world[0]), true);
+                path.BeginFigure(ProjectHull(world[0]), true);
                 foreach (Vector3 vertex in world.Skip(1))
                 {
-                    path.LineTo(Project(vertex));
+                    path.LineTo(ProjectHull(vertex));
                 }
 
                 path.EndFigure(true);

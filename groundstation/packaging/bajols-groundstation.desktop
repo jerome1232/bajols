@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=BAJOLS Ground Station
+Exec=bajols-groundstation
+Terminal=false
+Categories=Utility;

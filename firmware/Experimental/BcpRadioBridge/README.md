@@ -36,9 +36,10 @@ arduino-cli compile -b esp32:esp32:esp32 --libraries firmware/Libraries \
   --output-dir /tmp/bajols-rf-buoy firmware/Experimental/BcpRadioBridge
 ```
 
-Flash the corresponding build to each ESP32. Select the shore adapter's serial
-port in the ground station and use the expected ID of the actual BCP vehicle or
-test peer. For a USB-to-USB bench test, wire the buoy's UART to a 3.3 V USB-UART
+Flash the corresponding build to each ESP32. In the serial YAML, set `port` to
+the shore adapter's serial port and `expected_vehicle_id` to the ID of the actual
+BCP vehicle or test peer. Select the file with **Load YAML…** before connecting.
+For a USB-to-USB bench test, wire the buoy's UART to a 3.3 V USB-UART
 adapter with TX/RX crossed and common ground, then attach a BCP test peer to
 that port. For a tethered Mega, build its vehicle firmware with
 [`BAJOLS_BCP_USE_SERIAL1`](../../BUILD_AND_PROVISION.md#mega-use-the-rf-buoy-and-rs-422-tether)

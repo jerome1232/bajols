@@ -35,12 +35,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// <summary>
     /// Validated station settings, or null when configuration prevents connection.
     /// </summary>
-    private readonly StationConfiguration? configuration;
+    private StationConfiguration? configuration;
+    private string? configurationFileName;
 
     /// <summary>
     /// Thread-safe fresh operator input shared with the background session client.
     /// </summary>
-    private readonly OperatorInput input;
+    private OperatorInput input;
 
     /// <summary>
     /// Simulated vehicle retained across link reconnects to preserve its safety state.
@@ -56,6 +57,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// Current explicit connection attempt or established client, or null while disconnected.
     /// </summary>
     private VehicleClient? client;
+    private bool disconnecting;
+    private bool disposed;
 
     /// <summary>
     /// Current simulator transport, or null when disconnected or using serial.
@@ -229,14 +232,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// <summary>
     /// Initializes validated configuration, fresh operator input, explicit commands and presentation refresh scheduling.
     /// </summary>
-    public MainWindowViewModel(Func<StationConfiguration> loadConfiguration, TimeProvider clock)
+    public MainWindowViewModel(Func<StationConfiguration?> loadConfiguration, TimeProvider clock)
     {
         this.clock = clock;
         simulationOrigin = clock.GetTimestamp();
         try
         {
-            configuration = loadConfiguration();
-            configuration.Validate();
+            var loaded = loadConfiguration();
+            loaded?.Validate();
+            configuration = loaded;
         }
         catch (Exception e)
         {
@@ -251,7 +255,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
             Refresh();
         }
 
-        ConnectCommand = new(ConnectAsync, Error, () => configuration != null && client == null);
+        ConnectCommand = new(ConnectAsync, Error, () => configuration != null && CanLoadConfiguration);
         DisconnectCommand = new(DisconnectAsync, Error, () => client != null);
         ArmCommand = new(() => Request(MessageType.Arm), Error, () => CanArm);
         DisarmCommand = new(() => Request(MessageType.Disarm), Error, () => CanStop);
@@ -294,9 +298,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     }
 
     /// <summary>
-    /// Selects the explicit command-line configuration path or the bundled YAML file.
+    /// Loads a configuration at startup when an explicit command-line path is supplied.
     /// </summary>
-    private static StationConfiguration LoadConfiguration()
+    private static StationConfiguration? LoadConfiguration()
     {
         string[] args = Environment.GetCommandLineArgs();
         int index = Array.IndexOf(args, "--config");
@@ -305,7 +309,47 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
             throw new ConfigurationException("--config requires a file path.");
         }
 
-        return StationConfiguration.Load(index >= 0 ? args[index + 1] : Path.Combine(AppContext.BaseDirectory, "station.yaml"));
+        return index >= 0 ? StationConfiguration.Load(args[index + 1]) : null;
+    }
+
+    /// <summary>
+    /// Whether a configuration can be selected while the link is idle.
+    /// </summary>
+    public bool CanLoadConfiguration => client is null && !disconnecting && !disposed;
+
+    /// <summary>
+    /// Validates a selected YAML file before replacing the configuration of an idle station.
+    /// </summary>
+    public void LoadConfiguration(string path)
+    {
+        if (!CanLoadConfiguration)
+        {
+            return;
+        }
+
+        StationConfiguration loaded;
+        try
+        {
+            loaded = StationConfiguration.Load(path);
+        }
+        catch (Exception e) when (e is ConfigurationException or IOException or UnauthorizedAccessException)
+        {
+            ReportConfigurationError(e.Message);
+            return;
+        }
+
+        ReleaseInput();
+        input = new(clock, loaded.InputFreshnessMs, loaded.DeadZone);
+        configuration = loaded;
+        configurationFileName = Path.GetFileName(path);
+        problem = null;
+        Refresh();
+    }
+
+    internal void ReportConfigurationError(string message)
+    {
+        problem = $"Configuration error: {message}";
+        Refresh();
     }
 
     /// <summary>
@@ -313,7 +357,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// </summary>
     public async Task ConnectAsync()
     {
-        if (configuration == null || client != null)
+        if (configuration == null || !CanLoadConfiguration)
         {
             return;
         }
@@ -330,7 +374,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
             transport = new SerialByteTransport(configuration.Port, configuration.ReadTimeoutMs, configuration.WriteTimeoutMs, configuration.BufferBytes);
         }
 
-        var connectingClient = new VehicleClient(transport, OpaqueId128.FromBytes(Convert.FromHexString(configuration.ExpectedVehicleId)), () => input.TrySample(out var value) ? value : null, () => buoyancy, clock);
+        var connectionInput = input;
+        var connectingClient = new VehicleClient(transport, OpaqueId128.FromBytes(Convert.FromHexString(configuration.ExpectedVehicleId)), () => connectionInput.TrySample(out var value) ? value : null, () => buoyancy, clock);
         client = connectingClient;
         Refresh();
         try
@@ -360,15 +405,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     public async Task DisconnectAsync()
     {
         ReleaseInput();
-        var old = client;
+        if (client is not { } old)
+        {
+            return;
+        }
+
+        disconnecting = true;
         client = null;
         simulator = null;
-        if (old != null)
+        Refresh();
+        try
         {
             await old.DisposeAsync();
         }
-
-        Refresh();
+        finally
+        {
+            disconnecting = false;
+            Refresh();
+        }
     }
 
     /// <summary>
@@ -918,7 +972,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// <summary>
     /// Status banner combining configuration/connection errors and link provenance.
     /// </summary>
-    public string StatusMessage => problem ?? Snapshot?.Error ?? (configuration?.Transport == "simulator" ? $"SIMULATION · {LinkFreshness}" : $"SERIAL · {LinkFreshness} · {configuration?.Port}");
+    public string StatusMessage
+    {
+        get
+        {
+            string status = problem ?? Snapshot?.Error ?? (configuration?.Transport switch
+            {
+                "simulator" => $"SIMULATION · {LinkFreshness}",
+                "serial" => $"SERIAL · {LinkFreshness} · {configuration.Port}",
+                _ => "Load a YAML configuration to connect."
+            });
+            return configurationFileName is null ? status : $"{status} · Active config: {configurationFileName}";
+        }
+    }
 
     /// <summary>
     /// Whether validated configuration selects the simulated peer.
@@ -1151,6 +1217,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         timer.Stop();
         await DisconnectAsync();
     }

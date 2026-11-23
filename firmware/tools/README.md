@@ -51,7 +51,7 @@ python3 firmware/tools/provision_identity.py prepare \
 ```
 
 Alternatively use `--vehicle-id` with exactly 32 wire-order hex characters for an
-explicitly assigned new ID. Zero, erased and bundled simulator IDs are refused.
+explicitly assigned new ID. Zero, erased and simulator IDs are refused.
 The generated bundle contains:
 
 - `identity.eep.hex`: sparse Intel HEX for only the selected 192-byte window.
@@ -109,8 +109,9 @@ The current fixed pairs are not wear leveling.
 
 For the existing ground station, select `transport: serial`, the correct `port`,
 `baud_rate: 115200` and the bundle's `expected_vehicle_id` in a separate vehicle
-configuration. The simulator configuration is unchanged. Monitoring can connect
-but its unsupported control capabilities keep Arm unavailable. Physical USB reset,
+configuration. Open the ground station and use **Load YAML…** to select that
+file while disconnected. Monitoring can connect but its unsupported control
+capabilities keep Arm unavailable. Physical USB reset,
 port permission and programmer behavior remain to be checked on actual hardware.
 
 ## ESP32 dedicated NVS provisioning

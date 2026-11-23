@@ -5,6 +5,7 @@ BCP encoding, explicit session establishment, validated YAML configuration, a se
 adapter, a simulated peer, keyboard, trackpad and gamepad input, and a live
 status dashboard.
 It starts disconnected and never automatically connects, clears failsafe or arms.
+Load a YAML configuration before connecting.
 
 ## Build, test and run
 
@@ -26,10 +27,27 @@ for the equivalent driver test and explicitly skips that Linux-only test.
 Avalonia 12.1.6, System.IO.Ports 10.0.0 and YamlDotNet 18.1.0. Update lock files
 intentionally when changing dependencies.
 
+## Install packaged builds
+
+The packaging workflow builds an x64 Windows installer (`.exe`), Debian package
+(`.deb`), and Fedora-compatible RPM (`.rpm`). For pushes to `develop`, open
+the **Publish Ground Station** run in GitHub Actions and download the Windows
+and Linux artifacts. Tags such as `v1.2.3` and `v1.2.3-rc.1` also attach the
+three packages to the corresponding GitHub release. A new release for a
+suffixed tag is marked as a prerelease. [Workflow source](../.github/workflows/publish-groundstation.yml)
+
+Run the Windows installer, or install the downloaded Linux package with
+`sudo apt install ./<package>.deb` or `sudo dnf install ./<package>.rpm`.
+On Linux, open **BAJOLS Ground Station** from the application menu or run
+`bajols-groundstation`. Each package bundles .NET. Keep your YAML file
+separately and select it with **Load YAML…** after launch. Windows gamepad support requires a separately
+installed x64 SDL2 DLL available to the application.
+
 ## Operate the simulator
 
-1. Press **Connect**. The bundled configuration selects the simulator and checks its
-   vehicle ID. Status changes from unconfirmed to confirmed; telemetry is marked SIM.
+1. Select the [simulator YAML](Bajols.GroundStation/station.yaml) with **Load YAML…**,
+   then press **Connect**. The ground station checks the simulator vehicle ID.
+   Status changes from unconfirmed to confirmed and telemetry is marked SIM.
 2. Hold **Space** with forward/yaw/dive centered. After one second of fresh neutral
    input, press **Arm** while continuing to hold Space.
 3. Hold Space and drag the circular pad. The top requests nose up, the bottom
@@ -72,6 +90,11 @@ preserves emergency state across link reconnects and model reboots during the ap
 session. It has no durable emergency-latch storage across application restarts.
 
 ## Dashboard layout and depth indicator
+
+Use the **Theme** picker beside the connection controls to switch between
+**Modern**, **Green CRT**, and **Amber CRT**. The CRT themes use system
+monospace text, square panels, and a pixelated attitude display with scanlines.
+The app starts in **Modern** each time.
 
 Telemetry and vehicle status overlay the 3D scene; there is no separate top row
 of sensor cards or standalone status panel. Supply voltage and propulsion RPM are
@@ -145,8 +168,16 @@ progress. Fault and action reports are historical, not evidence of current state
 
 ## YAML configuration
 
-The bundled `Bajols.GroundStation/station.yaml` is copied beside the executable.
-Override it explicitly:
+Use **Load YAML…** while disconnected to select a `.yaml` or `.yml` file.
+The app validates the file before applying it and shows the active filename in
+the status banner. If validation fails, the banner displays the error and the
+previous configuration stays active. To switch files during a session, press
+**Disconnect** first. For simulator use, save a local copy of the
+[example simulator YAML](Bajols.GroundStation/station.yaml).
+
+You can also supply a file at startup with `--config`. For a source checkout,
+run the following from `groundstation/`. For an installed Linux build, run
+`bajols-groundstation --config /path/to/station.yaml`.
 
 ```sh
 dotnet run --project Bajols.GroundStation -- --config /path/to/station.yaml
@@ -269,11 +300,9 @@ of the six-metre reporting/display limit and distance-based warning prominence.
 Distant markers can reach the view edge; their labels retain reported distance.
 Neither the model dimensions nor marker spacing establish calibrated hull clearance.
 
-## Planned buoy radio link
+## Buoy radio link
 
-The selected initial radio is RFM69HCW at 915 MHz, with a buoy and a wired
-submarine tether. See [the arrangement and recommended modules](../Documentation/Wiring/RF_BUOY_TETHER.md)
-for the shore USB bridge, buoy SPI/UART bridge, differential tether interfaces and
-RF packet-size constraints. These are planned transport additions, not currently
-implemented ground-station radio support. Vehicle identity and command authority
-remain on the submarine across the bridged link.
+For the experimental RFM69HCW bridge, set `port` in the serial YAML to the shore
+ESP32's USB serial port and keep `expected_vehicle_id` set to the submarine's
+provisioned ID. Load that YAML before connecting. Vehicle identity and command
+authority remain on the submarine across the bridged link. [RF buoy and tether wiring](../Documentation/Wiring/RF_BUOY_TETHER.md) · [Radio bridge firmware](../firmware/Experimental/BcpRadioBridge/README.md)

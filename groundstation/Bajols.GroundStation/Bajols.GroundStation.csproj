@@ -15,5 +15,4 @@
     <ProjectReference Include="../Bajols.Communication/Bajols.Communication.csproj" />
     <ProjectReference Include="../Bajols.Input/Bajols.Input.csproj" />
   </ItemGroup>
-  <ItemGroup><None Update="station.yaml" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>
