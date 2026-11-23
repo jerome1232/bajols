@@ -42,12 +42,13 @@ drivers. [PCA9685 datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf)
 
 ## Build the shield PWM variant
 
-Install the [legacy libraries](../../README.md#compile), then compile from the
+Extract the [bundled legacy libraries](../../README.md#compile) into
+`/tmp/bajols-legacy-libraries` as shown in the README, then compile from the
 repository root:
 
 ```sh
 arduino-cli compile --fqbn arduino:avr:mega \
-  --libraries firmware/Libraries \
+  --libraries firmware/Libraries --libraries /tmp/bajols-legacy-libraries \
   --output-dir /tmp/bajols-build/mega-flysky-shield \
   --build-property 'compiler.cpp.extra_flags=-DBAJOLS_ENABLE_LEGACY_CONTROL -DBAJOLS_LEGACY_SHIELD_ENGINE_PWM' \
   firmware/Experimental/TelemetryProof

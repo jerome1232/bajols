@@ -21,7 +21,9 @@
 #define BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_MOTOR_H_
 
 #include <Arduino.h>
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
 #include <Encoder.h>
+#endif
 #include <stdint.h>
 
 namespace bajols {
@@ -49,11 +51,9 @@ class HBridge {
   HBridge() : HBridge(kDefaultInput1Pin, kDefaultInput2Pin) {}
 
   HBridge(uint8_t input_1, uint8_t input_2)
-      : input_1_(input_1), input_2_(input_2) {
-    pinMode(input_1_, OUTPUT);
-    pinMode(input_2_, OUTPUT);
-    Off();
-  }
+      : input_1_(input_1), input_2_(input_2) {}
+
+  void Begin();
 
   // Set the motor to go forward
   virtual void Forward();
@@ -78,14 +78,17 @@ class HBridge {
   const uint8_t input_2_;
 
   // Last direction selected by this driver.
-  Direction direction_;
+  Direction direction_ = Direction::kCoast;
 };
 
 // HBridgePwm class - Controls motor direction and speed using PWM.
 class HBridgePwm : public HBridge {
  public:
   // Optional PWM backend. It returns false when the output write fails.
-  using PwmWriter = bool (*)(uint8_t);
+  struct PwmBackend {
+    bool (*write)(uint16_t);
+    uint16_t full_level;
+  };
 
   // Uses the default Arduino PWM and direction pins.
   HBridgePwm()
@@ -94,32 +97,28 @@ class HBridgePwm : public HBridge {
   HBridgePwm(uint8_t input_1, uint8_t input_2, uint8_t pwm_pin)
       : HBridge(input_1, input_2),
         pwm_pin_(pwm_pin),
-        pwm_writer_(nullptr),
-        pwm_level_(0),
-        pwm_fault_(false) {
-    pinMode(pwm_pin_, OUTPUT);
-  }
+        backend_{nullptr, kMaxPwmValue} {}
 
-  HBridgePwm(uint8_t input_1, uint8_t input_2, PwmWriter pwm_writer)
+  HBridgePwm(uint8_t input_1, uint8_t input_2, PwmBackend backend)
       : HBridge(input_1, input_2),
         pwm_pin_(0),
-        pwm_writer_(pwm_writer),
-        pwm_level_(0),
-        pwm_fault_(false) {}
+        backend_(backend) {}
+
+  void Begin();
 
   /*
    * Set motor direction and speed.
    * @param direction Direction to set the motor (kForward, kBackward, kCoast,
    * kStop)
-   * @param pwm PWM duty cycle (0-255)
+   * @param pwm PWM level in units of the selected backend
    */
-  virtual void Set(Direction direction, uint8_t pwm);
+  virtual void Set(Direction direction, uint16_t pwm);
 
   /*
    * Set motor speed.
-   * @param pwm PWM duty cycle (0-255)
+   * @param pwm PWM level in units of the selected backend
    */
-  virtual void SetSpeed(uint8_t pwm);
+  virtual void SetSpeed(uint16_t pwm);
 
   // Selects the bridge braking state.
   void Stop() override;
@@ -128,18 +127,20 @@ class HBridgePwm : public HBridge {
   void Off() override;
 
   /* Get the current duty cycle of the motor */
-  uint8_t GetSpeed() const;
+  uint16_t GetSpeed() const;
+  bool Failed() const { return pwm_fault_; }
 
  private:
   /* Pin that controls motor speed */
   const uint8_t pwm_pin_;
-  const PwmWriter pwm_writer_;
+  const PwmBackend backend_;
 
   // Last successful duty cycle, or zero after a PWM failure.
-  uint8_t pwm_level_;
-  bool pwm_fault_;
+  uint16_t pwm_level_ = 0;
+  bool pwm_fault_ = false;
 };
 
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
 class HBridgePwmEncoder : public HBridgePwm {
  public:
   HBridgePwmEncoder()
@@ -152,9 +153,9 @@ class HBridgePwmEncoder : public HBridgePwm {
       : HBridgePwm(input_1, input_2, pwm_pin),
         encoder_(encoder_pin_a, encoder_pin_b) {}
 
-  HBridgePwmEncoder(uint8_t input_1, uint8_t input_2, PwmWriter pwm_writer,
+  HBridgePwmEncoder(uint8_t input_1, uint8_t input_2, PwmBackend backend,
                     uint8_t encoder_pin_a, uint8_t encoder_pin_b)
-      : HBridgePwm(input_1, input_2, pwm_writer),
+      : HBridgePwm(input_1, input_2, backend),
         encoder_(encoder_pin_a, encoder_pin_b) {}
 
   // Returns the most recent shaft RPM.
@@ -162,26 +163,19 @@ class HBridgePwmEncoder : public HBridgePwm {
     return rpm_;
   }
 
-  void Set(Direction direction, uint8_t speed) override;
-
-  void SetSpeed(uint8_t speed) override;
-
-  void Off() override;
-
-  void Stop() override;
-
   // Updates RPM once the encoder sampling interval has elapsed.
   void Read();
 
  private:
   // Latest shaft speed in revolutions per minute.
-  volatile int32_t rpm_ = 0;
+  int32_t rpm_ = 0;
 
   // Timestamp of the last encoder sample.
-  uint32_t last_rpm_at_ = millis();
+  uint32_t last_rpm_at_ = 0;
 
   Encoder encoder_;
 };
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL
 }  // namespace legacy
 }  // namespace bajols
 

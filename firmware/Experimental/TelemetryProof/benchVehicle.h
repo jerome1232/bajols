@@ -5,6 +5,8 @@
 
 #include <BajolsMonitor.h>
 
+#include "actuatorHardware.h"
+
 namespace bajols {
 namespace vehicle {
 
@@ -20,19 +22,13 @@ class BenchHardware {
   void Apply(const bcp::ControlOutputs& outputs);
 
  private:
-  bool SetMotor(int16_t effort);
-  void DisableMotor();
-  void Fail();
   bool ReadReset(bool permitted, uint32_t now);
 
-  bool failed_ = false;
+  ActuatorHardware actuators_;
   bool stop_during_boot_ = false;
   bool reset_level_ = true;
   bool reset_ready_ = false;
   uint32_t reset_changed_at_ = 0;
-  int16_t forward_ = 0;
-  int16_t yaw_ = 0;
-  int16_t dive_ = 0;
   uint32_t next_shield_check_at_ = 0;
 };
 

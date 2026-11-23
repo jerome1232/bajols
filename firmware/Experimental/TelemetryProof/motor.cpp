@@ -1,4 +1,4 @@
-#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL) || defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
 /*
  * The TelemetryStreamTest application.
  *
@@ -20,17 +20,23 @@
 
 #include "motor.h"
 
-#include "debug.h"
-
 namespace bajols {
 namespace legacy {
-namespace {
 
-constexpr float kMillisecondsPerMinute = 60000.0f;
-constexpr uint32_t kRpmIntervalMs = 50;
-constexpr int16_t kPulsesPerRevolution = 8400;
+void HBridge::Begin() {
+  HBridge::Off();
+  pinMode(input_1_, OUTPUT);
+  pinMode(input_2_, OUTPUT);
+}
 
-}  // namespace
+void HBridgePwm::Begin() {
+  HBridge::Begin();
+  if (!backend_.write) {
+    digitalWrite(pwm_pin_, LOW);
+    pinMode(pwm_pin_, OUTPUT);
+    SetSpeed(0);
+  }
+}
 
 void HBridge::Forward() {
   digitalWrite(input_1_, HIGH);
@@ -60,9 +66,9 @@ Direction HBridge::GetState() const {
   return direction_;
 }
 
-void HBridgePwm::Set(Direction direction, uint8_t pwm) {
-  DEBUG_PRINTLN_INFO("Set called");
-  if (pwm_writer_ && direction != direction_ && pwm_level_ != 0) {
+void HBridgePwm::Set(Direction direction, uint16_t pwm) {
+  if (backend_.write && direction != direction_ && pwm_level_ != 0) {
+    HBridge::Off();
     // Disable the bridge's enable/PWM input before changing direction.
     SetSpeed(0);
   }
@@ -82,19 +88,19 @@ void HBridgePwm::Set(Direction direction, uint8_t pwm) {
       break;
     case Direction::kStop:
       HBridge::Stop();
-      pwm = kMaxPwmValue;
+      pwm = backend_.full_level;
       break;
   }
 
   SetSpeed(pwm);
 }
 
-void HBridgePwm::SetSpeed(uint8_t pwm) {
+void HBridgePwm::SetSpeed(uint16_t pwm) {
   if (pwm_fault_) {
     return;
   }
-  if (pwm_writer_) {
-    if (!pwm_writer_(pwm)) {
+  if (backend_.write) {
+    if (!backend_.write(pwm)) {
       pwm_fault_ = true;
       pwm_level_ = 0;
       HBridge::Off();
@@ -106,18 +112,27 @@ void HBridgePwm::SetSpeed(uint8_t pwm) {
   pwm_level_ = pwm;
 }
 
-uint8_t HBridgePwm::GetSpeed() const {
+uint16_t HBridgePwm::GetSpeed() const {
   return pwm_level_;
 }
 
 void HBridgePwm::Stop() {
-  HBridgePwm::Set(Direction::kStop, kMaxPwmValue);
+  HBridgePwm::Set(Direction::kStop, backend_.full_level);
 }
 
 void HBridgePwm::Off() {
   HBridge::Off();
   SetSpeed(kMinPwmValue);
 }
+
+#if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
+namespace {
+
+constexpr float kMillisecondsPerMinute = 60000.0f;
+constexpr uint32_t kRpmIntervalMs = 50;
+constexpr int16_t kPulsesPerRevolution = 8400;
+
+}  // namespace
 
 void HBridgePwmEncoder::Read() {
   uint32_t now = millis();
@@ -137,26 +152,8 @@ void HBridgePwmEncoder::Read() {
   }
 }
 
-void HBridgePwmEncoder::Set(Direction direction, uint8_t speed) {
-  HBridgePwm::Set(direction, speed);
-  Read();
-}
-
-void HBridgePwmEncoder::SetSpeed(uint8_t speed) {
-  HBridgePwm::SetSpeed(speed);
-  Read();
-}
-
-void HBridgePwmEncoder::Off() {
-  HBridgePwm::Off();
-  Read();
-}
-
-void HBridgePwmEncoder::Stop() {
-  HBridgePwm::Stop();
-  rpm_ = 0;
-}
+#endif  // BAJOLS_ENABLE_LEGACY_CONTROL
 }  // namespace legacy
 }  // namespace bajols
 
-#endif  // BAJOLS_ENABLE_LEGACY_CONTROL
+#endif  // Actuator-enabled build

@@ -60,14 +60,22 @@ and the limits of this schematic display.
 The default actuator-disabled build needs the matching Arduino board core and
 local `BajolsProtocol` library. See [Build and provision](firmware/BUILD_AND_PROVISION.md)
 for pinned Mega/ESP32 toolchains, compile/upload commands and persistent identity.
-The libraries below are for the optional **Mega legacy control** experiment.
+The optional **Mega legacy control** build uses the bundled
+[IBusBM 1.1.4](firmware/Libraries/IBusBM-1.1.4.zip) and
+[Encoder 1.4.4](firmware/Libraries/Encoder-1.4.4.zip) archives. In the Arduino IDE,
+add each archive through **Sketch → Include Library → Add .ZIP Library**.
+For Arduino CLI, extract them into a local library directory and pass that
+directory when compiling from the repository root.
 
-|Library|Location in Repo|Web link|Version|
-|-------|----------------|-------|-------|
-|IBusBM|/firmware/Libraries/IBusBM-1.1.4.zip|[bmellink/IBusBM](https://github.com/bmellink/IBusBM)|1.1.4
-|Encoder|-|[Encoder](https://github.com/PaulStoffregen/Encoder)|1.4.4
-|Adafruit_BusIO|-|[Adafruit_BusIO](https://github.com/adafruit/Adafruit_BusIO)|1.17.4
-|Adafruit_PWM-Servo-Driver|-|[Servo-Driver](https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library)|3.0.2
+```sh
+mkdir -p /tmp/bajols-legacy-libraries
+unzip -o firmware/Libraries/IBusBM-1.1.4.zip -d /tmp/bajols-legacy-libraries
+unzip -o firmware/Libraries/Encoder-1.4.4.zip -d /tmp/bajols-legacy-libraries
+arduino-cli compile --fqbn arduino:avr:mega \
+  --libraries firmware/Libraries --libraries /tmp/bajols-legacy-libraries \
+  --build-property 'compiler.cpp.extra_flags=-DBAJOLS_ENABLE_LEGACY_CONTROL' \
+  firmware/Experimental/TelemetryProof
+```
 
 Open [TelemetryProof.ino](firmware/Experimental/TelemetryProof/TelemetryProof.ino)
 in the Arduino IDE and select Arduino Mega 2560, or use the documented ESP32 Dev
