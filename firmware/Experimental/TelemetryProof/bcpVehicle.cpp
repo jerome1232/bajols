@@ -5,6 +5,24 @@
 #include <BajolsBoardStorage.h>
 #include <BajolsMonitor.h>
 
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+#if !defined(__AVR_ATmega2560__) || !defined(BAJOLS_BCP_ENABLE_EEPROM_WRITES)
+#error "BCP bench control requires the Mega 2560 and writable identity storage."
+#endif
+#include "benchVehicle.h"
+#endif
+
+#if defined(BAJOLS_BCP_DEMO_TELEMETRY)
+#ifndef BAJOLS_BCP_DEMO_DEPTH_MM
+#define BAJOLS_BCP_DEMO_DEPTH_MM 2000
+#endif
+static_assert(BAJOLS_BCP_DEMO_DEPTH_MM >= 0 &&
+                  BAJOLS_BCP_DEMO_DEPTH_MM <= INT32_MAX,
+              "Simulated depth must fit a nonnegative BCP millimetre value.");
+#elif defined(BAJOLS_BCP_DEMO_DEPTH_MM)
+#error "BAJOLS_BCP_DEMO_DEPTH_MM requires BAJOLS_BCP_DEMO_TELEMETRY."
+#endif
+
 #if defined(BAJOLS_BCP_ENABLE_EEPROM_WRITES)
 #if !defined(BAJOLS_BCP_EEPROM_BASE) || !defined(BAJOLS_BCP_WRITE_TIMEOUT_MS)
 #error "Writable BCP builds require an explicit EEPROM base and byte timeout."
@@ -51,9 +69,12 @@ bcp::BoardStorage storage(BAJOLS_BCP_EEPROM_BASE,
 // Identity verification and durable boot/latch state precede session creation.
 bcp::IdentityJournal journal(storage, BAJOLS_BCP_EEPROM_BASE,
                              BAJOLS_BCP_WRITE_TIMEOUT_MS);
-// No movement/ballast capabilities, owner selection or actuator output
-// interface.
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+bcp::MonitoringRuntime runtime(journal, kTelemetryMask, true);
+BenchHardware bench_hardware;
+#else
 bcp::MonitoringRuntime runtime(journal, kTelemetryMask);
+#endif
 // Serial is exclusively binary BCP; debug printing is not enabled on this path.
 bcp::BasicArduinoSerialPort<decltype(Serial)> port(Serial);
 // Wrapping monotonic onboard time.
@@ -76,7 +97,8 @@ bcp::Telemetry Acquire(uint32_t now) {
   telemetry.records[3] = {bcp::MeasurementId::kPitch, kUnavailableQuality,
                           65535, 0};
 #if defined(BAJOLS_BCP_DEMO_TELEMETRY)
-  telemetry.records[0] = {bcp::MeasurementId::kDepth, kDemoQuality, 0, 2000};
+  telemetry.records[0] = {bcp::MeasurementId::kDepth, kDemoQuality, 0,
+                          BAJOLS_BCP_DEMO_DEPTH_MM};
   telemetry.records[1] = {bcp::MeasurementId::kSupplyVoltage, kDemoQuality, 0,
                           12000};
   telemetry.records[2] = {bcp::MeasurementId::kHeading, kDemoQuality, 0,
@@ -90,6 +112,9 @@ bcp::Telemetry Acquire(uint32_t now) {
 }  // namespace
 
 void Begin() {
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+  bench_hardware.Begin();
+#endif
   Serial.begin(115200);
   if (bcp::InitializeBoardStorage(storage)) {
     runtime.Begin();
@@ -98,11 +123,17 @@ void Begin() {
 
 void Step() {
   uint32_t now = clock_source.Now();
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+  bench_hardware.ReadInputs(runtime, now);
+#endif
   if (static_cast<uint32_t>(now - last_sample_at) >= 200) {
     last_sample_at = now;
     runtime.SetTelemetry(Acquire(now), now);
   }
   runtime.Step(port, clock_source);
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+  bench_hardware.Apply(runtime.BenchOutputs(clock_source.Now()));
+#endif
 }
 }  // namespace vehicle
 }  // namespace bajols

@@ -352,8 +352,9 @@ with C++11 and C integer headers for the Arduino AVR toolchain. The Arduino
 library include name and sketch naming follow Arduino discovery conventions;
 `setup()` and `loop()` retain their required names. Use fixed-width integers for
 wire values, explicit little-endian reads/writes, braced control bodies, documented
-public fields/methods, and one statement per line. The existing experimental
-sketch is outside this library's style scope.
+public fields/methods, and one statement per line. The legacy FlySky sketch
+follows the same conventions while retaining Arduino sketch entry points and
+library APIs.
 
 Object reporting uses vehicle-to-PC `0x33` and SupportedSystems bit 4. Each complete
 per-sensor snapshot contains at most four observations (95 payload bytes), with

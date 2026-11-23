@@ -14,19 +14,20 @@ MonitoringRuntime::ContextStorage::~ContextStorage() {}
 
 MonitoringRuntime::Context::Context(IdentityJournal& journal,
                                     const VerifiedBootState& boot,
-                                    uint32_t telemetry_mask)
-    : manager(Profile(telemetry_mask), boot),
+                                    uint32_t telemetry_mask, bool bench_control)
+    : manager(Profile(telemetry_mask, bench_control), boot),
       endpoint(manager),
       persistence(journal, manager) {}
 
 MonitoringRuntime::MonitoringRuntime(IdentityJournal& journal,
-                                     uint32_t telemetry_mask)
+                                     uint32_t telemetry_mask, bool bench_control)
     : journal_(journal),
       storage_(),
       begun_(false),
       ready_(false),
       failed_(false),
       telemetry_mask_(telemetry_mask),
+      bench_control_(bench_control),
       telemetry_(),
       has_telemetry_(false),
       telemetry_at_(0),
@@ -38,7 +39,8 @@ MonitoringRuntime::~MonitoringRuntime() {
   }
 }
 
-ControllerProfile MonitoringRuntime::Profile(uint32_t telemetry_mask) {
+ControllerProfile MonitoringRuntime::Profile(uint32_t telemetry_mask,
+                                             bool bench_control) {
   ControllerProfile profile = {};
   profile.capabilities = {1,  0,   0,    0, telemetry_mask, 50, 500,
                           50, 500, 1000, 50};
@@ -47,6 +49,11 @@ ControllerProfile MonitoringRuntime::Profile(uint32_t telemetry_mask) {
   profile.release_depth_mm = 0;
   profile.depth_stale_ms = 1;
   profile.pc_configured = true;
+  if (bench_control) {
+    profile.bench_control = true;
+    profile.capabilities.supported_modes = 1;
+    profile.capabilities.supported_axes = 7;
+  }
   for (uint8_t i = 0; i < 7; ++i) {
     profile.fault_severity[i] = FaultSeverity::kBlocking;
   }
@@ -83,7 +90,7 @@ void MonitoringRuntime::Step(BytePort& port, MillisecondClock& clock) {
       return;
     }
     new (static_cast<void*>(&storage_.active))
-        Context(journal_, boot, telemetry_mask_);
+        Context(journal_, boot, telemetry_mask_, bench_control_);
     ready_ = true;
     return;  // Keep the final startup read separate from runtime storage work.
   }
@@ -152,6 +159,27 @@ bool MonitoringRuntime::GetStatus(uint32_t now, VehicleStatus& status) {
   }
   status = storage_.active.manager.Status(now);
   return true;
+}
+
+bool MonitoringRuntime::SetBenchInputs(bool pc_selected, bool stop_asserted,
+                                       bool reset_pressed, uint32_t now) {
+  if (!ready_ || !bench_control_) {
+    return false;
+  }
+  SessionManager& manager = storage_.active.manager;
+  manager.SetEmergencyInput(stop_asserted, now);
+  manager.SetOwner(pc_selected ? MovementOwner::kPc : MovementOwner::kNone, now);
+  if (reset_pressed && !stop_asserted) {
+    manager.RequestLocalReset(now);
+  }
+  return true;
+}
+
+ControlOutputs MonitoringRuntime::BenchOutputs(uint32_t now) {
+  if (!ready_ || !bench_control_) {
+    return {};
+  }
+  return storage_.active.manager.Outputs(now);
 }
 
 bool MonitoringRuntime::Failed() const { return failed_; }

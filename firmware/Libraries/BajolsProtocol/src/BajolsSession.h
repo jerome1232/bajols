@@ -54,6 +54,8 @@ struct ControllerProfile {
   bool flysky_configured;
   // Whether the future local autonomy adapter is provisioned.
   bool autonomy_configured;
+  // Dry bench only: PC movement with no depth or ballast authority.
+  bool bench_control;
 };
 
 // Output intent only; neither these values nor codec packets drive actuators.

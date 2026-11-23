@@ -118,6 +118,12 @@ SessionManager::SessionManager(const ControllerProfile& profile,
 
 bool SessionManager::ValidProfile(const ControllerProfile& p) {
   const Capabilities& c = p.capabilities;
+  if (p.bench_control &&
+      (c.supported_modes != 1 || c.supported_axes != 7 ||
+       c.supported_systems != 0 || !p.pc_configured ||
+       p.flysky_configured || p.autonomy_configured)) {
+    return false;
+  }
   if ((c.supported_modes & ~1U) != 0 || (c.supported_axes & ~7U) != 0 ||
       (c.supported_systems & ~31U) != 0 ||
       (c.supported_telemetry & ~255UL) != 0 || c.movement_interval_ms != 50 ||
@@ -162,7 +168,8 @@ bool SessionManager::DepthHealthy(uint32_t now) const {
 bool SessionManager::BlockingFault() const {
   if (service_required_ || profile_.capabilities.supported_modes != 1 ||
       profile_.capabilities.supported_axes != 7 ||
-      (profile_.capabilities.supported_systems & 3U) != 3U) {
+      (!profile_.bench_control &&
+       (profile_.capabilities.supported_systems & 3U) != 3U)) {
     return true;
   }
   for (uint8_t i = 0; i < 7; ++i) {
@@ -264,7 +271,8 @@ void SessionManager::Advance(uint32_t now) {
     pending_.active = false;
   }
   bool depth_healthy = DepthHealthy(now);
-  RecordFault(FaultCode::kDepthUnavailable, !depth_healthy);
+  RecordFault(FaultCode::kDepthUnavailable,
+              !profile_.bench_control && !depth_healthy);
   bool fresh = Fresh(movement_, now);
   bool expired = state_ == SafetyState::kArmed &&
                  ((movement_.active && !fresh) ||
@@ -304,8 +312,12 @@ void SessionManager::Advance(uint32_t now) {
   if (action != last_action_) {
     last_action_ = action;
     feedback_action_ = action;
-    feedback_status_ = action == BuoyancyAction::kNone ? ActionStatus::kInactive
-                                                       : ActionStatus::kRunning;
+    if (action == BuoyancyAction::kNone) {
+      feedback_status_ = ActionStatus::kInactive;
+    } else {
+      feedback_status_ = profile_.bench_control ? ActionStatus::kUnavailable
+                                                : ActionStatus::kRunning;
+    }
   }
 }
 
@@ -340,6 +352,9 @@ void SessionManager::SetOwner(MovementOwner owner, uint32_t now) {
 
 void SessionManager::SetDepth(int32_t millimetres, bool valid, uint32_t now) {
   Advance(now);
+  if (profile_.bench_control) {
+    return;
+  }
   depth_valid_ = valid && millimetres >= 0;
   if (depth_valid_) {
     depth_mm_ = millimetres;
@@ -370,6 +385,9 @@ void SessionManager::SetFault(FaultCode code, bool active, uint32_t now) {
 BuoyancyAction SessionManager::EffectiveBuoyancy() const {
   if (emergency_latched_) {
     return BuoyancyAction::kEmergencyEvacuation;
+  }
+  if (profile_.bench_control) {
+    return BuoyancyAction::kNone;
   }
   if (state_ == SafetyState::kCommandLossFailsafe ||
       state_ == SafetyState::kFaultFailsafe) {
@@ -982,9 +1000,10 @@ VehicleStatus SessionManager::Status(uint32_t now) {
   if (BlockingFault()) {
     status.arming_blockers |= 64U;
   }
-  if (!DepthHealthy(now) || faults_[1].active || faults_[2].active ||
-      (profile_.capabilities.supported_systems & 3U) != 3U ||
-      service_required_) {
+  if (service_required_ ||
+      (!profile_.bench_control &&
+       (!DepthHealthy(now) || faults_[1].active || faults_[2].active ||
+        (profile_.capabilities.supported_systems & 3U) != 3U))) {
     status.arming_blockers |= 128U;
   }
   if (fault_latched_) {
@@ -1012,7 +1031,7 @@ VehicleStatus SessionManager::Status(uint32_t now) {
   if (restricted_) {
     status.active_restrictions |= 5U;
   }
-  if (!DepthHealthy(now)) {
+  if (!profile_.bench_control && !DepthHealthy(now)) {
     status.active_restrictions |= 6U;
   }
   if (!has_previous_status_ || !SameStatusShape(status, previous_status_)) {

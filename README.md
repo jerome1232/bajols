@@ -7,8 +7,10 @@ The repository includes experimental Mega/ESP32 Arduino firmware, a portable BCP
 library, and a C# desktop ground station with an encoded simulated peer. The
 [`TelemetryProof` sketch](firmware/Experimental/TelemetryProof/README.md) now defaults
 to actuator-disabled BCP integration. Its original FlySky control/telemetry
-experiment is retained behind `BAJOLS_ENABLE_LEGACY_CONTROL`. BCP actuator
-integration is deferred. The [firmware build and provisioning guide](firmware/BUILD_AND_PROVISION.md)
+experiment is retained behind `BAJOLS_ENABLE_LEGACY_CONTROL`. The opt-in
+[Mega BCP bench build](Documentation/Wiring/MEGA_ACTUATORS.md#mega-bcp-bench-control-profile)
+drives the control surfaces and unloaded main motor. The
+[firmware build and provisioning guide](firmware/BUILD_AND_PROVISION.md)
 covers Mega EEPROM and ESP32 NVS, including full dump/readback verification.
 
 The legacy FlySky experiment reacts to throttle/direction and ballast switches,
@@ -63,7 +65,6 @@ The libraries below are for the optional **Mega legacy control** experiment.
 |Library|Location in Repo|Web link|Version|
 |-------|----------------|-------|-------|
 |IBusBM|/firmware/Libraries/IBusBM-1.1.4.zip|[bmellink/IBusBM](https://github.com/bmellink/IBusBM)|1.1.4
-|Servo|-|[Servo](https://github.com/arduino-libraries/Servo.git)|1.3.0
 |Encoder|-|[Encoder](https://github.com/PaulStoffregen/Encoder)|1.4.4
 |Adafruit_BusIO|-|[Adafruit_BusIO](https://github.com/adafruit/Adafruit_BusIO)|1.17.4
 |Adafruit_PWM-Servo-Driver|-|[Servo-Driver](https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library)|3.0.2
@@ -79,7 +80,8 @@ demo-writable vehicle paths plus the portable protocol/monitoring fixtures.
 The [portable firmware protocol library](firmware/Libraries/BajolsProtocol/README.md)
 contains the BCP codec, a session/authorization manager and a bounded serial endpoint.
 It is integrated into the default vehicle sketch for actuator-disabled command
-handling and telemetry; movement ownership and actuator application remain deferred. An experimental identity/emergency journal
+handling and telemetry. The bench build adds physical PC ownership and limited
+actuator output. An experimental identity/emergency journal
 models the [storage policy](protocol/FIRMWARE_STORAGE_PROPOSAL.md) in RAM.
 The Mega EEPROM adapter and persistence coordinator are implemented; supplied
 sketches default to EEPROM writes disabled and never provision identity. The

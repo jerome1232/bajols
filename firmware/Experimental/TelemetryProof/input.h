@@ -17,82 +17,44 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef INPUT_h
-#define INPUT_h
+#ifndef BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_INPUT_H_
+#define BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_INPUT_H_
 
-#include "dataUtils.h"
-#include "debug.h"
-#include "Arduino.h"
-#include "IBusBM.h"
-#include "motor.h"
+#include <Arduino.h>
+#include <IBusBM.h>
+#include <stdint.h>
 
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
+#include "data_utils.h"
 
-namespace Data
-{
-  static constexpr uint8_t RUDDER_INDEX = 0;
-  static constexpr uint8_t DIVE_PLANE_INDEX = 1;
-  static constexpr uint8_t THROTTLE_INDEX = 2;
-  static constexpr uint8_t SWA_INDEX = 4; 
-  static constexpr uint8_t SWB_INDEX = 5; 
-  static constexpr uint8_t SWC_INDEX = 6; 
-  static constexpr uint8_t SWD_INDEX = 7; 
-  static constexpr uint8_t VRA_INDEX = 9; 
-  static constexpr uint8_t VRB_INDEX = 10
-  ; 
-  /* Transformed controller inpus */
-  class Input
-  {
-    public:
-      /* Default constructor */
-      Input();
+namespace bajols {
+namespace legacy {
+// Reads FlySky receiver channels and maps them onto actuator inputs.
+class Input {
+ public:
+  Input();
 
-      /* Starts serial communication */
-      Begin();
+  // Starts receiving iBus channel data on Serial2.
+  void Begin();
+  // Samples and converts the current receiver channels.
+  void Read();
 
-      /* Read data */
-      Read();
+  uint8_t throttle;            // Motor duty from 0 to 255.
+  uint32_t rudder_us;          // Rudder pulse width in microseconds.
+  uint32_t dive_plane_us;      // Dive plane pulse width in microseconds.
+  SwitchPos switch_a;          // Selects forward or reverse.
+  SwitchPos switch_b;          // Reserved receiver switch.
+  ThreeWaySwitchPos switch_c;  // Selects the ballast action.
+  SwitchPos switch_d;          // Reserved receiver switch.
+  uint16_t knob_a;             // Reserved receiver knob.
+  uint16_t knob_b;             // Reserved receiver knob.
 
-      /* Throttle value, between 0 and 255 */
-      uint8_t throttle;
+ private:
+  static constexpr uint8_t kChannelCount = 10;
+  uint16_t channel_data_[kChannelCount];
+  IBusBM ibus_;
+};
 
-      /* Rudder angle, between -15 and 15 */
-      uint32_t rudder;
+}  // namespace legacy
+}  // namespace bajols
 
-      /* Dive Plane angle, between -15 and 15 */
-      uint32_t divePlane;
-
-      /* Throttle reverse switch */
-      SwitchPos swA;
-
-      /* Unknown use */
-      SwitchPos swB;
-
-      /* Ballast control */
-      ThreeWaySwitchPos swC;
-
-      /* Unknown use */
-      SwitchPos swD;
-
-      /* Unknown use */
-      uint16_t vrA;
-
-      /* Unknown use */
-      uint16_t vrB;
-
-      private:
-        /* Number of channels to read from reciever */
-        static constexpr uint8_t NUM_CHANNELS = 10;
-
-        /* Raw sensor data */
-        uint16_t channelData[NUM_CHANNELS];
-
-        /* iBus object */
-        IBusBM ibus;
-  }; 
-}
-
-#endif
+#endif  // BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_INPUT_H_

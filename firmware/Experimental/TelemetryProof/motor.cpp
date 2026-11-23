@@ -1,5 +1,4 @@
 #if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
-#include "HardwareSerial.h"
 /*
  * The TelemetryStreamTest application.
  *
@@ -21,135 +20,143 @@
 
 #include "motor.h"
 
-void Motor::HBridge::forward()
-{
-  digitalWrite(this->INPUT1, HIGH);
-  digitalWrite(this->INPUT2, LOW);
-  state = FORWARD;
+#include "debug.h"
+
+namespace bajols {
+namespace legacy {
+namespace {
+
+constexpr float kMillisecondsPerMinute = 60000.0f;
+constexpr uint32_t kRpmIntervalMs = 50;
+constexpr int16_t kPulsesPerRevolution = 8400;
+
+}  // namespace
+
+void HBridge::Forward() {
+  digitalWrite(input_1_, HIGH);
+  digitalWrite(input_2_, LOW);
+  direction_ = Direction::kForward;
 }
 
-
-void Motor::HBridge::backward()
-{
-  digitalWrite(this->INPUT1, LOW);
-  digitalWrite(this->INPUT2, HIGH);
-  state = BACKWARD;
+void HBridge::Backward() {
+  digitalWrite(input_1_, LOW);
+  digitalWrite(input_2_, HIGH);
+  direction_ = Direction::kBackward;
 }
 
-void Motor::HBridge::stop()
-{
-  digitalWrite(this->INPUT1, HIGH);
-  digitalWrite(this->INPUT2, HIGH);
-  state = STOP;
+void HBridge::Stop() {
+  digitalWrite(input_1_, HIGH);
+  digitalWrite(input_2_, HIGH);
+  direction_ = Direction::kStop;
 }
 
-void Motor::HBridge::off()
-{
-  digitalWrite(this->INPUT1, LOW);
-  digitalWrite(this->INPUT2, LOW);
-  state = COAST;
+void HBridge::Off() {
+  digitalWrite(input_1_, LOW);
+  digitalWrite(input_2_, LOW);
+  direction_ = Direction::kCoast;
 }
 
-Motor::Direction Motor::HBridge::getState()
-{
-  return state;
+Direction HBridge::GetState() const {
+  return direction_;
 }
 
-void Motor::HBridgePWM::set(Direction direction, uint8_t pwm)
-{
+void HBridgePwm::Set(Direction direction, uint8_t pwm) {
   DEBUG_PRINTLN_INFO("Set called");
-  switch (direction) 
-  {
-    case FORWARD:
-      forward();
+  if (pwm_writer_ && direction != direction_ && pwm_level_ != 0) {
+    // Disable the bridge's enable/PWM input before changing direction.
+    SetSpeed(0);
+  }
+  if (pwm_fault_) {
+    return;
+  }
+  switch (direction) {
+    case Direction::kForward:
+      Forward();
       break;
-    case BACKWARD:
-      backward();
+    case Direction::kBackward:
+      Backward();
       break;
-    case COAST:
-      off();
+    case Direction::kCoast:
+      HBridge::Off();
+      pwm = kMinPwmValue;
       break;
-    case STOP:
-      stop();
+    case Direction::kStop:
+      HBridge::Stop();
+      pwm = kMaxPwmValue;
       break;
-  }  
-
-  setSpeed(pwm);
-}
-
-void Motor::HBridgePWM::setSpeed(uint8_t pwm)
-{
-  if (pwm > MAX_PWM_VALUE)
-  {
-    DEBUG_PRINTLN_ERROR("PWM value exceeds maximum, clamping to MAX_PWM_VALUE");
-    pwm = MAX_PWM_VALUE;
   }
 
-  if (pwm < MIN_PWM_VALUE)
-  {
-    DEBUG_PRINTLN_WARN("PWM value below minimum, clamping to MIN_PWM_VALUE");
-    pwm = MIN_PWM_VALUE;
+  SetSpeed(pwm);
+}
+
+void HBridgePwm::SetSpeed(uint8_t pwm) {
+  if (pwm_fault_) {
+    return;
   }
-
-  analogWrite(this->PWM_PIN, pwm);
-  pwmLevel = pwm;
+  if (pwm_writer_) {
+    if (!pwm_writer_(pwm)) {
+      pwm_fault_ = true;
+      pwm_level_ = 0;
+      HBridge::Off();
+      return;
+    }
+  } else {
+    analogWrite(pwm_pin_, pwm);
+  }
+  pwm_level_ = pwm;
 }
 
-void Motor::HBridgePWM::stop()
-{
-  HBridge::stop();
-  setSpeed(MAX_PWM_VALUE);
+uint8_t HBridgePwm::GetSpeed() const {
+  return pwm_level_;
 }
 
-void Motor::HBridgePWM::off()
-{
-  HBridge::off();
-  setSpeed(MIN_PWM_VALUE);
+void HBridgePwm::Stop() {
+  HBridgePwm::Set(Direction::kStop, kMaxPwmValue);
 }
 
+void HBridgePwm::Off() {
+  HBridge::Off();
+  SetSpeed(kMinPwmValue);
+}
 
-void Motor::HBridgePWMEnc::read()
-{
-  uint32_t currentTime = millis();
-  uint32_t elapsedTime = currentTime - lastTime;
-  if (elapsedTime == 0)
-  {
+void HBridgePwmEncoder::Read() {
+  uint32_t now = millis();
+  uint32_t elapsed_ms = now - last_rpm_at_;
+  if (elapsed_ms == 0) {
     return;
   }
 
-  if (elapsedTime >= UPDATE_INTERVAL)
-  {
-    int32_t pulses = this->encoder.readAndReset();
-    if (pulses < 0)
-    {
+  if (elapsed_ms >= kRpmIntervalMs) {
+    int32_t pulses = encoder_.readAndReset();
+    if (pulses < 0) {
       pulses = pulses * -1;
     }
-    rpm = (pulses / double(PULSES_PER_REVOLUTION)) * (MINUTE_MS / elapsedTime);
-    lastTime = currentTime;
+    rpm_ = (pulses / static_cast<double>(kPulsesPerRevolution)) *
+           (kMillisecondsPerMinute / elapsed_ms);
+    last_rpm_at_ = now;
   }
 }
 
-void Motor::HBridgePWMEnc::set(Motor::Direction direction, uint8_t speed)
-{
-  HBridgePWM::set(direction, speed);
-  read();
+void HBridgePwmEncoder::Set(Direction direction, uint8_t speed) {
+  HBridgePwm::Set(direction, speed);
+  Read();
 }
 
-void Motor::HBridgePWMEnc::setSpeed(uint8_t speed)
-{
-  HBridgePWM::setSpeed(speed);
-  read();
+void HBridgePwmEncoder::SetSpeed(uint8_t speed) {
+  HBridgePwm::SetSpeed(speed);
+  Read();
 }
 
-void Motor::HBridgePWMEnc::off()
-{
-  HBridgePWM::off();
-  read();
+void HBridgePwmEncoder::Off() {
+  HBridgePwm::Off();
+  Read();
 }
 
-void Motor::HBridgePWMEnc::stop()
-{
-  HBridgePWM::stop();
-  rpm = 0;
+void HBridgePwmEncoder::Stop() {
+  HBridgePwm::Stop();
+  rpm_ = 0;
 }
+}  // namespace legacy
+}  // namespace bajols
+
 #endif  // BAJOLS_ENABLE_LEGACY_CONTROL

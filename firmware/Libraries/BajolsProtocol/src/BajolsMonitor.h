@@ -7,16 +7,16 @@
 namespace bajols {
 namespace bcp {
 
-// Actuator-free startup/runtime composition, not an operational vehicle
-// controller. No movement owner, modes, axes or ballast systems are advertised.
-// Trusted adapters can supply bounded telemetry with explicit
-// quality/provenance.
+// Verified startup, bounded serial, telemetry and persistence. The default
+// profile is monitor-only. The explicit bench profile also exposes movement
+// intent to a trusted dry-bench hardware adapter.
 class MonitoringRuntime {
  public:
   // References the exclusive journal; constructs no manager before verified
   // boot.
   explicit MonitoringRuntime(IdentityJournal& journal,
-                             uint32_t telemetry_mask = 0);
+                             uint32_t telemetry_mask = 0,
+                             bool bench_control = false);
   // Destroys the explicitly constructed fixed-storage context if startup
   // finished.
   ~MonitoringRuntime();
@@ -28,8 +28,13 @@ class MonitoringRuntime {
   // media.
   bool Begin();
   // Advances one startup byte or bounded serial/persistence work after startup.
-  // No actuator output API exists in this monitoring-only composition.
   void Step(BytePort& port, MillisecondClock& clock);
+  // Applies physical inputs before servicing serial. Returns false until a
+  // verified bench session manager exists.
+  bool SetBenchInputs(bool pc_selected, bool stop_asserted, bool reset_pressed,
+                      uint32_t now);
+  // Reads authorized, fresh movement or a zero-initialized safe output.
+  ControlOutputs BenchOutputs(uint32_t now);
   // Replaces the latest acquired instrument snapshot; sample age is relative to
   // now, not the next transmission. Invalid records never replace retained
   // data.
@@ -43,8 +48,7 @@ class MonitoringRuntime {
   bool Failed() const;
 
  private:
-  // Builds a non-actuating profile with the requested instrument-report mask.
-  static ControllerProfile Profile(uint32_t telemetry_mask);
+  static ControllerProfile Profile(uint32_t telemetry_mask, bool bench_control);
   // Stable references are initialized together only after journal verification.
   struct Context {
     // Independent authoritative safety/session state using the verified boot.
@@ -55,7 +59,7 @@ class MonitoringRuntime {
     PersistenceCoordinator persistence;
     // Constructs all runtime references after successful boot evidence exists.
     Context(IdentityJournal& journal, const VerifiedBootState& boot,
-            uint32_t telemetry_mask);
+            uint32_t telemetry_mask, bool bench_control);
   };
   // Union alignment is determined by Context; placement construction uses no
   // heap.
@@ -82,6 +86,7 @@ class MonitoringRuntime {
   bool failed_;
   // Immutable implemented instrument-reporting mask; unknown bits fail startup.
   uint32_t telemetry_mask_;
+  const bool bench_control_;
   // Latest instrument snapshot, never refreshed merely by a transmission.
   Telemetry telemetry_;
   // Whether a validated snapshot has been submitted by the instrument adapter.

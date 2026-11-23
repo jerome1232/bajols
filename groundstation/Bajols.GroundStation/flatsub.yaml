@@ -1,0 +1,11 @@
+schema_version: 1
+transport: serial
+port: "/dev/ttyACM0"
+expected_vehicle_id: "2C0AEAB3A4894D3EDCB597DB81374FA9"
+baud_rate: 115200
+read_timeout_ms: 100
+write_timeout_ms: 250
+buffer_bytes: 4096
+dead_zone: 0.05
+input_freshness_ms: 200
+telemetry_freshness_ms: 1000

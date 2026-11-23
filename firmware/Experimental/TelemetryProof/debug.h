@@ -17,44 +17,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef DEBUG_h
-#define DEBUG_h
+#ifndef BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_DEBUG_H_
+#define BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_DEBUG_H_
 
+#include <Arduino.h>
+
+// Each debug level also enables the less verbose levels.
 #if defined(DEBUG_TRACE)
-  #define DEBUG_PRINT_TRACE(x)    Serial.print(x)
-  #define DEBUG_PRINTLN_TRACE(x)  Serial.println(x)
-  #define DEBUG_ERROR
+#define DEBUG_PRINT_TRACE(x) Serial.print(x)
+#define DEBUG_PRINTLN_TRACE(x) Serial.println(x)
 #else
-  #define DEBUG_PRINT_TRACE(x)
-  #define DEBUG_PRINTLN_TRACE(x)
+#define DEBUG_PRINT_TRACE(x)
+#define DEBUG_PRINTLN_TRACE(x)
 #endif
 
-#if defined(DEBUG_ERROR)
-  #define DEBUG_PRINT_ERROR(x)    Serial.print(x)
-  #define DEBUG_PRINTLN_ERROR(x)  Serial.println(x)
-  #define DEBUG_WARN
+#if defined(DEBUG_TRACE) || defined(DEBUG_ERROR)
+#define DEBUG_PRINT_ERROR(x) Serial.print(x)
+#define DEBUG_PRINTLN_ERROR(x) Serial.println(x)
 #else
-  #define DEBUG_PRINT_ERROR(x)
-  #define DEBUG_PRINTLN_ERROR(x)
+#define DEBUG_PRINT_ERROR(x)
+#define DEBUG_PRINTLN_ERROR(x)
 #endif
 
-#if defined(DEBUG_WARN)
-  #define DEBUG_PRINT_WARN(x)     Serial.print(x)
-  #define DEBUG_PRINTLN_WARN(x)   Serial.println(x)
-  #define DEBUG_INFO
+#if defined(DEBUG_TRACE) || defined(DEBUG_ERROR) || defined(DEBUG_WARN)
+#define DEBUG_PRINT_WARN(x) Serial.print(x)
+#define DEBUG_PRINTLN_WARN(x) Serial.println(x)
 #else
-  #define DEBUG_PRINT_WARN(x)
-  #define DEBUG_PRINTLN_WARN(x)
+#define DEBUG_PRINT_WARN(x)
+#define DEBUG_PRINTLN_WARN(x)
 #endif
 
-#if defined(DEBUG_INFO)
-  #define DEBUG_BEGIN(x)          Serial.begin(x)
-  #define DEBUG_PRINT_INFO(x)     Serial.print(x)
-  #define DEBUG_PRINTLN_INFO(x)   Serial.println(x)
+#if defined(DEBUG_TRACE) || defined(DEBUG_ERROR) || defined(DEBUG_WARN) || \
+    defined(DEBUG_INFO)
+#define DEBUG_BEGIN(x) Serial.begin(x)
+#define DEBUG_PRINT_INFO(x) Serial.print(x)
+#define DEBUG_PRINTLN_INFO(x) Serial.println(x)
 #else
-  #define DEBUG_BEGIN(x)
-  #define DEBUG_PRINT_INFO(x)
-  #define DEBUG_PRINTLN_INFO(x)
+#define DEBUG_BEGIN(x)
+#define DEBUG_PRINT_INFO(x)
+#define DEBUG_PRINTLN_INFO(x)
 #endif
 
-#endif
+#endif  // BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_DEBUG_H_

@@ -75,11 +75,17 @@ arduino-cli compile --fqbn esp32:esp32:esp32 --libraries firmware/Libraries --ou
 Both are actuator-disabled. `BAJOLS_BCP_DEMO_TELEMETRY` optionally generates clearly
 simulated depth/supply/heading/pitch instead of unavailable sensor reports; it does
 not enable control or bypass verified identity. A demo-only build is still read-only.
+Add `-DBAJOLS_BCP_DEMO_DEPTH_MM=4500` alongside that flag to report a fixed
+simulated depth of 4.5 m. The default demo depth is 2 m.
 
 The Mega legacy experiment can be selected with
 `--build-property 'compiler.cpp.extra_flags=-DBAJOLS_ENABLE_LEGACY_CONTROL'` plus
 its separately installed libraries. This directly drives hardware, bypasses BCP
 arbitration, and is deliberately rejected on ESP32.
+To move the main H-bridge PWM input to the servo shield, build with both legacy
+flags and follow the [Mega actuator wiring](../Documentation/Wiring/MEGA_ACTUATORS.md).
+For ground-station actuator testing, use the opt-in
+[BCP bench build and switch pinout](../Documentation/Wiring/MEGA_ACTUATORS.md#mega-bcp-bench-control-profile).
 
 ### Monitoring-only target
 

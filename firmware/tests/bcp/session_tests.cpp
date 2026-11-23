@@ -918,6 +918,57 @@ void TestMonitorCapabilities() {
         "control");
 }
 
+void TestBenchControl() {
+  bcp::ControllerProfile profile = Profile();
+  profile.capabilities.supported_systems = 0;
+  profile.flysky_configured = false;
+  Peer ordinary(0, profile);
+  ordinary.Qualify();
+  Check(ordinary.Action(bcp::MessageType::kArm) ==
+            bcp::CommandResultCode::kBlockingFault,
+        "ordinary control still requires ballast capabilities");
+
+  profile.bench_control = true;
+  bcp::VerifiedBootState boot = Boot();
+  boot.emergency = bcp::StoredEmergency::kLatched;
+  Peer bench(0, profile, boot);
+  bench.manager.SetEmergencyInput(true, bench.now);
+  Check(!bench.manager.RequestLocalReset(bench.now),
+        "open bench stop loop prevents reset");
+  bench.manager.SetEmergencyInput(false, bench.now);
+  Check(bench.manager.RequestLocalReset(bench.now),
+        "bench reset can proceed without evacuation hardware");
+  const bcp::EmergencyWrite clear = bench.manager.PendingEmergencyWrite();
+  Check(clear.pending && !clear.latched, "bench reset requires durable clear");
+  Check(bench.manager.Status(bench.now).safety_state ==
+            bcp::SafetyState::kEmergencyStopLatched,
+        "bench remains latched while the clear is pending");
+  bench.manager.CompleteEmergencyWrite(clear.token, true, bench.now);
+  bench.At(bench.now + 50);
+  bench.GetTicket();
+  Check(bench.Action(bcp::MessageType::kArm) ==
+            bcp::CommandResultCode::kNeutralHoldIncomplete,
+        "bench still requires fresh neutral qualification");
+  bench.Arm();
+  bench.manager.SetDepth(6000, true, bench.now);
+  bench.Send(bench.Movement(800, -250, 300));
+  bench.Buoyancy(bcp::BuoyancyTarget::kNegative);
+  const bcp::ControlOutputs armed = bench.manager.Outputs(bench.now);
+  Check(armed.forward == 800 && armed.yaw == -250 && armed.dive == 300 &&
+            armed.buoyancy == bcp::BuoyancyAction::kNone,
+        "bench grants three movement axes and no ballast authority");
+  bench.At(bench.now + 500);
+  const bcp::ControlOutputs expired = bench.manager.Outputs(bench.now);
+  Check(expired.forward == 0 && expired.yaw == 0 && expired.dive == 0 &&
+            expired.buoyancy == bcp::BuoyancyAction::kNone,
+        "expired bench input returns all outputs to neutral");
+  bench.manager.SetEmergencyInput(true, bench.now);
+  Check(bench.manager.Status(bench.now).safety_state ==
+            bcp::SafetyState::kEmergencyStopLatched &&
+            bench.manager.PendingEmergencyWrite().latched,
+        "bench physical stop is latched and persisted");
+}
+
 }  // namespace
 
 // Runs portable stateful scenarios independently of the stateless codec suite.
@@ -934,6 +985,7 @@ int main() {
   TestStopReplayAndFailures();
   TestStateMatrix();
   TestMonitorCapabilities();
+  TestBenchControl();
   printf(
       "PASS: portable session/authorization scenario groups (T01-T30, "
       "T35-T40)\n");

@@ -17,205 +17,172 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*
- * Motor.h - Library for interacting with DC motors.
- */
+#ifndef BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_MOTOR_H_
+#define BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_MOTOR_H_
 
-#ifndef Motor_h
-#define Motor_h
+#include <Arduino.h>
+#include <Encoder.h>
+#include <stdint.h>
 
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
+namespace bajols {
+namespace legacy {
+constexpr uint8_t kMaxPwmValue = 255;
+constexpr uint8_t kMinPwmValue = 0;
 
-#include "Arduino.h"
-#include "Encoder.h"
-#include "debug.h"
+// Default Arduino pin assignments.
+constexpr uint8_t kDefaultInput1Pin = 22;
+constexpr uint8_t kDefaultInput2Pin = 23;
+constexpr uint8_t kDefaultPwmPin = 2;
+constexpr uint8_t kDefaultEncoderSignalAPin = 21;
+constexpr uint8_t kDefaultEncoderSignalBPin = 20;
 
-/* Holds classes for controlling motors */
-namespace Motor
-{
-  // Constants
-  static constexpr float MINUTE_MS = 60000.0f;
-  static constexpr uint16_t MAX_PWM_VALUE = 255;
-  static constexpr uint8_t MIN_PWM_VALUE = 0;
-  static constexpr uint32_t UPDATE_INTERVAL = 50;
-  static constexpr int16_t PULSES_PER_REVOLUTION = 8400;
+enum class Direction : uint8_t {
+  kCoast,
+  kStop,
+  kForward,
+  kBackward,
+};
 
-  // pins
-  static constexpr uint8_t DEFAULT_INPUT_1_PIN = 22;
-  static constexpr uint8_t DEFAULT_INPUT_2_PIN = 23;
-  static constexpr uint8_t DEFAULT_PWM_PIN = 2;
-  static constexpr uint8_t DEFAULT_ENCODER_SIGNAL_A_PIN = 21;
-  static constexpr uint8_t DEFAULT_ENCODER_SIGNAL_B_PIN = 20;
+// HBridge class - Controls basic motor direction without speed control.
+class HBridge {
+ public:
+  HBridge() : HBridge(kDefaultInput1Pin, kDefaultInput2Pin) {}
 
-  /*
-   * Possible motor states
-   */
-  enum Direction
-  {
-    COAST, // Motor is in an unpowered state allowing coasting
-    STOP, // Motor is in a powered, stoped state. Will not allow movement
-    FORWARD, // Motor is in a forward state
-    BACKWARD // Motor is in a backwards state
-  };
+  HBridge(uint8_t input_1, uint8_t input_2)
+      : input_1_(input_1), input_2_(input_2) {
+    pinMode(input_1_, OUTPUT);
+    pinMode(input_2_, OUTPUT);
+    Off();
+  }
 
-  /*
-   * HBridge class - Controls basic motor direction without speed control.
-   */
-  class HBridge
-  {
-    public:
-      /* Default Constructor */
-      HBridge() 
-        : HBridge(DEFAULT_INPUT_1_PIN, DEFAULT_INPUT_2_PIN) {};
+  // Set the motor to go forward
+  virtual void Forward();
 
-      /* Parametized Constructor
-       * @param input1 Pin that is used to control direction of motor
-       * @param input2 Pin that is used to control direction of motor
-       */
-      HBridge(const uint8_t input1, const uint8_t input2): INPUT1(input1), INPUT2(input2)
-      {
-        pinMode(INPUT1, OUTPUT);
-        pinMode(INPUT2, OUTPUT);
-        off();
-      };
+  // Set the motor to go backward
+  virtual void Backward();
 
-      /*
-       * Set the motor to go forward
-       */
-      virtual void forward();
+  // Selects the bridge braking state.
+  virtual void Stop();
 
-      /*
-       * Set the motor to go backward
-       */
-      virtual void backward();
+  // Sets both direction inputs low.
+  virtual void Off();
 
-      /*
-       * Set the motors to hard stop
-       */
-      virtual void stop();
+  // Returns the last selected direction.
+  Direction GetState() const;
 
-      /*
-       * Turn the motors off (coast)
-       */
-      virtual void off();
+ protected:
+  /* Pin that controls motor direction */
+  const uint8_t input_1_;
 
-      /*
-       * Get current motor state
-       */
-      Direction getState();
+  /* Pin that controls motor direction */
+  const uint8_t input_2_;
 
-    protected:
-      /* Pin that controls motor direction */
-      const uint8_t INPUT1;
+  // Last direction selected by this driver.
+  Direction direction_;
+};
 
-      /* Pin that controls motor direction */
-      const uint8_t INPUT2;
+// HBridgePwm class - Controls motor direction and speed using PWM.
+class HBridgePwm : public HBridge {
+ public:
+  // Optional PWM backend. It returns false when the output write fails.
+  using PwmWriter = bool (*)(uint8_t);
 
-      /* Current state of the motor */
-      Direction state;
-  };
+  // Uses the default Arduino PWM and direction pins.
+  HBridgePwm()
+      : HBridgePwm(kDefaultInput1Pin, kDefaultInput2Pin, kDefaultPwmPin) {}
+
+  HBridgePwm(uint8_t input_1, uint8_t input_2, uint8_t pwm_pin)
+      : HBridge(input_1, input_2),
+        pwm_pin_(pwm_pin),
+        pwm_writer_(nullptr),
+        pwm_level_(0),
+        pwm_fault_(false) {
+    pinMode(pwm_pin_, OUTPUT);
+  }
+
+  HBridgePwm(uint8_t input_1, uint8_t input_2, PwmWriter pwm_writer)
+      : HBridge(input_1, input_2),
+        pwm_pin_(0),
+        pwm_writer_(pwm_writer),
+        pwm_level_(0),
+        pwm_fault_(false) {}
 
   /*
-   * HBridgePWM class - Controls motor direction and speed using PWM.
+   * Set motor direction and speed.
+   * @param direction Direction to set the motor (kForward, kBackward, kCoast,
+   * kStop)
+   * @param pwm PWM duty cycle (0-255)
    */
-  class HBridgePWM : public HBridge
-  {
-    public:
-      /* Default Contructor */
-      HBridgePWM() 
-        : HBridgePWM(DEFAULT_INPUT_1_PIN, DEFAULT_INPUT_2_PIN, DEFAULT_PWM_PIN) {};
+  virtual void Set(Direction direction, uint8_t pwm);
 
-      /* Parametized Constructor
-       * @param input1 Pin that helps to control direction of motor
-       * @param input2 Pin that helps to control direction of motor
-       * @param pwmPin Pin that controls speed of motor
-       */
-      HBridgePWM(const uint8_t input1, const uint8_t input2, const uint8_t pwmPin) 
-        : HBridge(input1, input2), PWM_PIN(pwmPin), pwmLevel(0)
-      {
-        pinMode(PWM_PIN, OUTPUT);
-      };
+  /*
+   * Set motor speed.
+   * @param pwm PWM duty cycle (0-255)
+   */
+  virtual void SetSpeed(uint8_t pwm);
 
-      /*
-       * Set motor direction and speed.
-       * @param direction Direction to set the motor (FORWARD, BACKWARD, COAST, STOP)
-       * @param pwm PWM duty cycle (0-255)
-       */
-      virtual void set(Direction direction, uint8_t pwm);
+  // Selects the bridge braking state.
+  void Stop() override;
 
-      /*
-      * Set motor speed.
-      * @param pwm PWM duty cycle (0-255)
-      */
-      virtual void setSpeed(uint8_t pwm);
+  // Disables PWM and sets both direction inputs low.
+  void Off() override;
 
-      /*
-       * Set the motors to hard stop
-       */
-      virtual void stop() override;
+  /* Get the current duty cycle of the motor */
+  uint8_t GetSpeed() const;
 
-      /* Turn the motors off (coast) */
-      virtual void off() override;
+ private:
+  /* Pin that controls motor speed */
+  const uint8_t pwm_pin_;
+  const PwmWriter pwm_writer_;
 
-      /* Get the current duty cycle of the motor */
-      uint8_t getSpeed() const;
+  // Last successful duty cycle, or zero after a PWM failure.
+  uint8_t pwm_level_;
+  bool pwm_fault_;
+};
 
-    private:
-      /* Pin that controls motor speed */
-      uint8_t PWM_PIN;
+class HBridgePwmEncoder : public HBridgePwm {
+ public:
+  HBridgePwmEncoder()
+      : HBridgePwmEncoder(kDefaultInput1Pin, kDefaultInput2Pin, kDefaultPwmPin,
+                          kDefaultEncoderSignalAPin,
+                          kDefaultEncoderSignalBPin) {}
 
-      /* Duty Cycle Motor is currently set to */
-      uint16_t pwmLevel;
-  };
+  HBridgePwmEncoder(uint8_t input_1, uint8_t input_2, uint8_t pwm_pin,
+                    uint8_t encoder_pin_a, uint8_t encoder_pin_b)
+      : HBridgePwm(input_1, input_2, pwm_pin),
+        encoder_(encoder_pin_a, encoder_pin_b) {}
 
-  class HBridgePWMEnc : public HBridgePWM
-  {
-    public:
-      HBridgePWMEnc() 
-        : HBridgePWMEnc(DEFAULT_INPUT_1_PIN, DEFAULT_INPUT_2_PIN, DEFAULT_PWM_PIN, DEFAULT_ENCODER_SIGNAL_A_PIN, DEFAULT_ENCODER_SIGNAL_B_PIN) {};
-      
-      HBridgePWMEnc(uint8_t input1, uint8_t input2, uint8_t pwmPin, uint8_t interrupt1, uint8_t interrupt2)
-        : HBridgePWM(input1, input2, pwmPin), encoder(interrupt1, interrupt2), rpm(0) {};
+  HBridgePwmEncoder(uint8_t input_1, uint8_t input_2, PwmWriter pwm_writer,
+                    uint8_t encoder_pin_a, uint8_t encoder_pin_b)
+      : HBridgePwm(input_1, input_2, pwm_writer),
+        encoder_(encoder_pin_a, encoder_pin_b) {}
 
-      int32_t getRpm()
-      {
-        return rpm;
-      }
+  // Returns the most recent shaft RPM.
+  int32_t GetRpm() const {
+    return rpm_;
+  }
 
-      void set(Direction direction, uint8_t speed) override;
+  void Set(Direction direction, uint8_t speed) override;
 
-      void setSpeed(uint8_t speed) override;
+  void SetSpeed(uint8_t speed) override;
 
-      void off() override;
+  void Off() override;
 
-      void stop() override;
+  void Stop() override;
 
-      /*
-        * Reads encoder
-        */
-      void read();
+  // Updates RPM once the encoder sampling interval has elapsed.
+  void Read();
 
-      private:
-        /* 
-        * Current rotations per minute
-        * Unused and inaccessible right now
-        */
-        volatile int32_t rpm;
+ private:
+  // Latest shaft speed in revolutions per minute.
+  volatile int32_t rpm_ = 0;
 
-        /*
-         * Last time in milliseconds
-         * pulse count was checked
-         */
-        uint32_t lastTime = millis();
+  // Timestamp of the last encoder sample.
+  uint32_t last_rpm_at_ = millis();
 
-        /*
-         * Encoder for reading motor speed
-         */
-        Encoder encoder;
-  };
-}
+  Encoder encoder_;
+};
+}  // namespace legacy
+}  // namespace bajols
 
-#endif
+#endif  // BAJOLS_FIRMWARE_EXPERIMENTAL_TELEMETRY_PROOF_MOTOR_H_

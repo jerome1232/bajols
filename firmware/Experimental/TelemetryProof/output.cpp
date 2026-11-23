@@ -1,5 +1,4 @@
 #if defined(BAJOLS_ENABLE_LEGACY_CONTROL)
-#include "Arduino.h"
 /*
  * The TelemetryStreamTest application.
  *
@@ -21,73 +20,85 @@
 
 #include "output.h"
 
-namespace Data
-{
-  Data::Output::Begin()
-  {
-    this->ibus.begin(Serial3);
-    this->speedSensor = ibus.addSensor(SPEED);
-    this->rpmSensor = ibus.addSensor(IBUSS_RPM);
-    this->presSensor = ibus.addSensor(PRESSURE, PRESSURE_SIZE);
-    this->voltageSensor = ibus.addSensor(IBUSS_EXTV);
-    this->headingSensor = ibus.addSensor(HEADING);
+#include <Arduino.h>
 
-    DEBUG_PRINT_INFO("Speed sensor index: ");
-    DEBUG_PRINTLN_INFO(this->speedSensor);
-    DEBUG_PRINT_INFO("RPM sensor index: ");
-    DEBUG_PRINTLN_INFO(this->rpmSensor);
-    DEBUG_PRINT_INFO("Pressure sensor index: ");
-    DEBUG_PRINTLN_INFO(this->presSensor);
-    DEBUG_PRINT_INFO("Voltage sensor index: ");
-    DEBUG_PRINTLN_INFO(this->voltageSensor);
-    DEBUG_PRINT_INFO("Heading sensor index: ");
-    DEBUG_PRINTLN_INFO(this->headingSensor);
+#include "debug.h"
+
+namespace bajols {
+namespace legacy {
+namespace {
+
+constexpr uint8_t kPressure = 0x41;
+constexpr uint8_t kPressureSize = 4;
+constexpr uint8_t kHeading = 0x08;
+constexpr uint8_t kSpeed = 0x7E;
+
+}  // namespace
+
+void Output::Begin() {
+  ibus_.begin(Serial3);
+  speed_sensor_ = ibus_.addSensor(kSpeed);
+  rpm_sensor_ = ibus_.addSensor(IBUSS_RPM);
+  pressure_sensor_ = ibus_.addSensor(kPressure, kPressureSize);
+  voltage_sensor_ = ibus_.addSensor(IBUSS_EXTV);
+  heading_sensor_ = ibus_.addSensor(kHeading);
+
+  DEBUG_PRINT_INFO("Speed sensor index: ");
+  DEBUG_PRINTLN_INFO(speed_sensor_);
+  DEBUG_PRINT_INFO("RPM sensor index: ");
+  DEBUG_PRINTLN_INFO(rpm_sensor_);
+  DEBUG_PRINT_INFO("Pressure sensor index: ");
+  DEBUG_PRINTLN_INFO(pressure_sensor_);
+  DEBUG_PRINT_INFO("Voltage sensor index: ");
+  DEBUG_PRINTLN_INFO(voltage_sensor_);
+  DEBUG_PRINT_INFO("Heading sensor index: ");
+  DEBUG_PRINTLN_INFO(heading_sensor_);
+}
+
+void Output::SetSensors(const Input& input, int16_t rpm) {
+  rpm_ = rpm;
+  switch (input.switch_c) {
+    case ThreeWaySwitchPos::kUp:
+      pressure_ += 1;
+      break;
+    case ThreeWaySwitchPos::kDown:
+      pressure_ -= 1;
+      break;
+    case ThreeWaySwitchPos::kMiddle:
+      break;
   }
 
-  Data::Output::SetSensors(const Data::Input& input, int16_t _rpm)
-  {
-    rpm = _rpm;
-    switch (input.swC) 
-    {
-      case ThreeWaySwitchPos::UP:
-        pres += 1;
-        break;
-      case ThreeWaySwitchPos::DOWN:
-        pres -= 1;
-        break;
-    }
+  voltage_ = analogRead(A1);
 
-    voltage = analogRead(A1);
+  if (++heading_ > 359) {
+    heading_ = 0;
+  }
 
-    if (++heading > 359)
-    {
-      heading = 0;
-    }
+  speed_ = rpm / 3;
 
-    speed = _rpm / 3;
+  DEBUG_PRINTLN_INFO("Streaming Telemetry");
+  ibus_.setSensorMeasurement(rpm_sensor_, rpm_);
+  ibus_.setSensorMeasurement(pressure_sensor_, pressure_);
+  ibus_.setSensorMeasurement(voltage_sensor_, voltage_);
+  ibus_.setSensorMeasurement(heading_sensor_, heading_);
+  ibus_.setSensorMeasurement(speed_sensor_, speed_);
 
-    DEBUG_PRINTLN_INFO("Streaming Telemetry");
-    ibus.setSensorMeasurement(this->rpmSensor, this->rpm);
-    ibus.setSensorMeasurement(this->presSensor, this->pres);
-    ibus.setSensorMeasurement(this->voltageSensor, this->voltage);
-    ibus.setSensorMeasurement(this->headingSensor, this->heading);
-    ibus.setSensorMeasurement(this->speedSensor, this->speed);
+  DEBUG_PRINT_INFO("Pressure :\t");
+  DEBUG_PRINTLN_INFO(pressure_);
 
-    DEBUG_PRINT_INFO("Pressure :\t");
-    DEBUG_PRINTLN_INFO(pres);
+  DEBUG_PRINT_INFO("Heading :\t");
+  DEBUG_PRINTLN_INFO(heading_);
 
-    DEBUG_PRINT_INFO("Heading :\t");
-    DEBUG_PRINTLN_INFO(heading);
+  DEBUG_PRINT_INFO("RPM :\t\t");
+  DEBUG_PRINTLN_INFO(rpm_);
 
-    DEBUG_PRINT_INFO("RPM :\t\t");
-    DEBUG_PRINTLN_INFO(rpm);
+  DEBUG_PRINT_INFO("Speed :\t\t");
+  DEBUG_PRINTLN_INFO(speed_);
 
-    DEBUG_PRINT_INFO("Speed :\t\t");
-    DEBUG_PRINTLN_INFO(speed);
-
-    DEBUG_PRINT_INFO("Volts :\t\t");
-    DEBUG_PRINTLN_INFO(voltage);
-  };
+  DEBUG_PRINT_INFO("Volts :\t\t");
+  DEBUG_PRINTLN_INFO(voltage_);
 }
+}  // namespace legacy
+}  // namespace bajols
 
 #endif  // BAJOLS_ENABLE_LEGACY_CONTROL

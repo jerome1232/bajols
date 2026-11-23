@@ -20,54 +20,75 @@
 
 #include "input.h"
 
-Data::Input::Input()
-  : throttle(0), rudder(0), divePlane(0), swA(SwitchPos::UP), swB(SwitchPos::UP), swC(ThreeWaySwitchPos::UP), swD(SwitchPos::UP), vrA(MIN_RAW_INPUT), vrB(MIN_RAW_INPUT)
-{
-  for (uint8_t i = 0; i < NUM_CHANNELS; i++)
-  {
-    channelData[i] = MIN_RAW_INPUT;
-  }
-};
+#include <Arduino.h>
 
-Data::Input::Begin()
-{
-  ibus.begin(Serial2);
+#include "debug.h"
+#include "motor.h"
+
+namespace bajols {
+namespace legacy {
+namespace {
+
+constexpr uint8_t kRudderIndex = 0;
+constexpr uint8_t kDivePlaneIndex = 1;
+constexpr uint8_t kThrottleIndex = 2;
+constexpr uint8_t kSwitchAIndex = 4;
+constexpr uint8_t kSwitchCIndex = 6;
+
+}  // namespace
+
+Input::Input()
+    : throttle(0),
+      rudder_us(0),
+      dive_plane_us(0),
+      switch_a(SwitchPos::kUp),
+      switch_b(SwitchPos::kUp),
+      switch_c(ThreeWaySwitchPos::kUp),
+      switch_d(SwitchPos::kUp),
+      knob_a(kMinRawInput),
+      knob_b(kMinRawInput) {
+  for (uint8_t i = 0; i < kChannelCount; i++) {
+    channel_data_[i] = kMinRawInput;
+  }
 }
 
-Data::Input::Read()
-{
-  for (uint8_t i = 0; i < NUM_CHANNELS; i++)
-  {
-    channelData[i] = ibus.readChannel(i);
+void Input::Begin() {
+  ibus_.begin(Serial2);
+}
+
+void Input::Read() {
+  for (uint8_t i = 0; i < kChannelCount; i++) {
+    channel_data_[i] = ibus_.readChannel(i);
     DEBUG_PRINT_TRACE("Read channel ");
     DEBUG_PRINT_TRACE(i);
     DEBUG_PRINT_TRACE(" : ");
-    DEBUG_PRINTLN_TRACE(channelData[i]);
+    DEBUG_PRINTLN_TRACE(channel_data_[i]);
   }
 
-  rudder = map(channelData[RUDDER_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_RUDDER_ANGLE, MAX_RUDDER_ANGLE);
-  divePlane = map(channelData[DIVE_PLANE_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, MIN_DIVE_PLANE_ANGLE, MAX_DIVE_PLANE_ANGLE);
-  throttle = map(channelData[THROTTLE_INDEX], MIN_RAW_INPUT, MAX_RAW_INPUT, Motor::MIN_PWM_VALUE, Motor::MAX_PWM_VALUE);
+  rudder_us = map(channel_data_[kRudderIndex], kMinRawInput, kMaxRawInput,
+                  kRudderMinUs, kRudderMaxUs);
+  dive_plane_us = map(channel_data_[kDivePlaneIndex], kMinRawInput,
+                      kMaxRawInput, kDivePlaneMinUs, kDivePlaneMaxUs);
+  throttle = map(channel_data_[kThrottleIndex], kMinRawInput, kMaxRawInput,
+                 kMinPwmValue, kMaxPwmValue);
 
-  switch (channelData[SWA_INDEX])
-  {
-    case MIN_RAW_INPUT:
-      swA = SwitchPos::UP;
+  switch (channel_data_[kSwitchAIndex]) {
+    case kMinRawInput:
+      switch_a = SwitchPos::kUp;
       break;
-    case MAX_RAW_INPUT:
-      swA = SwitchPos::DOWN;
+    case kMaxRawInput:
+      switch_a = SwitchPos::kDown;
       break;
   }
-  switch (channelData[SWC_INDEX]) 
-  {
-    case MIN_RAW_INPUT:
-      swC = ThreeWaySwitchPos::UP;
+  switch (channel_data_[kSwitchCIndex]) {
+    case kMinRawInput:
+      switch_c = ThreeWaySwitchPos::kUp;
       break;
-    case MID_RAW_INPUT:
-      swC = ThreeWaySwitchPos::MIDDLE;
+    case kMidRawInput:
+      switch_c = ThreeWaySwitchPos::kMiddle;
       break;
-    case MAX_RAW_INPUT:
-      swC = ThreeWaySwitchPos::DOWN;
+    case kMaxRawInput:
+      switch_c = ThreeWaySwitchPos::kDown;
   }
 
   DEBUG_PRINTLN_TRACE("Raw to Mapped data values");
@@ -75,28 +96,31 @@ Data::Input::Read()
   DEBUG_PRINTLN_TRACE("Object\t\t|\tRaw\t|\tMapped");
 
   DEBUG_PRINT_TRACE("Rudder\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[RUDDER_INDEX]);
+  DEBUG_PRINT_TRACE(channel_data_[kRudderIndex]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(rudder);
+  DEBUG_PRINTLN_TRACE(rudder_us);
 
   DEBUG_PRINT_TRACE("Dive Plane\t|\t");
-  DEBUG_PRINT_TRACE(channelData[DIVE_PLANE_INDEX]);
+  DEBUG_PRINT_TRACE(channel_data_[kDivePlaneIndex]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(divePlane);
+  DEBUG_PRINTLN_TRACE(dive_plane_us);
 
   DEBUG_PRINT_TRACE("Throttle\t|\t");
-  DEBUG_PRINT_TRACE(channelData[THROTTLE_INDEX]);
+  DEBUG_PRINT_TRACE(channel_data_[kThrottleIndex]);
   DEBUG_PRINT_TRACE("\t|\t");
   DEBUG_PRINTLN_TRACE(throttle);
 
-  DEBUG_PRINT_TRACE("swA\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[SWA_INDEX]);
+  DEBUG_PRINT_TRACE("switch_a\t\t|\t");
+  DEBUG_PRINT_TRACE(channel_data_[kSwitchAIndex]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(int(swA));
+  DEBUG_PRINTLN_TRACE(static_cast<int>(switch_a));
 
-  DEBUG_PRINT_TRACE("swC\t\t|\t");
-  DEBUG_PRINT_TRACE(channelData[SWC_INDEX]);
+  DEBUG_PRINT_TRACE("switch_c\t\t|\t");
+  DEBUG_PRINT_TRACE(channel_data_[kSwitchCIndex]);
   DEBUG_PRINT_TRACE("\t|\t");
-  DEBUG_PRINTLN_TRACE(int(swC));
-};
+  DEBUG_PRINTLN_TRACE(static_cast<int>(switch_c));
+}
+}  // namespace legacy
+}  // namespace bajols
+
 #endif  // BAJOLS_ENABLE_LEGACY_CONTROL

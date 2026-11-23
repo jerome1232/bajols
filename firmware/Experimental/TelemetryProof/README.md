@@ -1,11 +1,11 @@
-# Vehicle BCP integration — actuator-disabled stage
+# Vehicle BCP integration
 
 `TelemetryProof` now defaults to the composed BCP monitoring/telemetry path in
 `bcpVehicle.cpp`. It continuously services bounded USB serial, verified startup,
 persistence and instrument reporting. It does not initialize motors, the PWM/servo
 board, ballast outputs or the FlySky receiver. There is no blocking LED startup.
-No code in this stage applies movement intent to hardware. The default path now
-builds for Mega 2560 and classic ESP32 Dev Module (4 MB flash). Follow the complete
+The default path builds for Mega 2560 and classic ESP32 Dev Module (4 MB flash).
+Follow the complete
 [build, dump, provisioning and readback guide](../../BUILD_AND_PROVISION.md) for
 both platforms before attempting a live serial connection.
 
@@ -14,9 +14,12 @@ both platforms before attempting a live serial connection.
 | Build definition | Behavior |
 |---|---|
 | None | BCP binary serial at 115200/8N1; Persistent writes disabled; no actuator support |
-| `BAJOLS_BCP_DEMO_TELEMETRY` | Synthetic 2 m depth, 12 V supply, changing heading and zero pitch; every sample is explicitly marked simulated |
+| `BAJOLS_BCP_DEMO_TELEMETRY` | Synthetic depth, 12 V supply, changing heading and zero pitch; every sample is explicitly marked simulated |
+| `BAJOLS_BCP_DEMO_DEPTH_MM` | Fixed simulated depth in millimetres. Requires the demo flag and defaults to `2000` (2 m) |
 | `BAJOLS_BCP_ENABLE_EEPROM_WRITES` | Permits verified EEPROM/NVS boot/latch journal writes; requires explicit `BAJOLS_BCP_EEPROM_BASE` and `BAJOLS_BCP_WRITE_TIMEOUT_MS` |
+| `BAJOLS_BCP_ENABLE_BENCH_CONTROL` | Mega-only dry bench control for propulsion and control surfaces. Requires writable identity storage and physical switches. |
 | `BAJOLS_ENABLE_LEGACY_CONTROL` | Mega-only legacy FlySky-to-actuator experiment; excludes the BCP adapter entirely |
+| `BAJOLS_LEGACY_SHIELD_ENGINE_PWM` | With the legacy flag, routes main motor PWM to PCA9685 channel 2 and pump enable to channel 3 |
 
 On ESP32, the supplied partition table isolates BCP NVS at `0x310000`; the
 `BAJOLS_BCP_EEPROM_BASE` setting is logical **0**, not this flash address.
@@ -42,6 +45,10 @@ permission to upload firmware or change EEPROM. No upload/provisioning command i
 included here. The existing Compile Sketches workflow builds the default BCP path.
 The legacy option requires the receiver/actuator libraries listed in the root README.
 It bypasses BCP arbitration and is not the operational vehicle-control implementation.
+For legacy serial logging, add one of `-DDEBUG_INFO`, `-DDEBUG_WARN`,
+`-DDEBUG_ERROR`, or `-DDEBUG_TRACE` to the build flags.
+See the [Mega actuator wiring and shield PWM build](../../../Documentation/Wiring/MEGA_ACTUATORS.md)
+for the channel and pin assignments.
 
 ## Telemetry and command boundary
 
@@ -51,6 +58,9 @@ demo definition, these sources report SensorFault, unknown sample age and no val
 reading: no raw ADC or fake pressure value is passed off as calibrated depth or
 voltage. The capability mask describes supported report types, not current health.
 RPM and object reporting are not advertised until their drivers are integrated.
+For a bench test at 4.5 m, add `-DBAJOLS_BCP_DEMO_TELEMETRY
+-DBAJOLS_BCP_DEMO_DEPTH_MM=4500` to the compile flags. This value goes to
+telemetry only. The depth safety interlock still requires calibrated sensor data.
 
 Trusted instrument adapters can call `MonitoringRuntime::SetTelemetry(snapshot,
 acquired_at)`; each record's sample age is relative to that timestamp. Publication
@@ -59,13 +69,13 @@ unknown; known ages saturate, then become unknown until a new acquisition. Count
 IDs, duplicates, quality bits and advertised support are validated before replacing
 the retained snapshot. The serial endpoint coalesces unsent telemetry frames.
 
-A verified session supports handshake, capabilities, status, heartbeat, command
+A verified monitor-only session supports handshake, capabilities, status, heartbeat, command
 results, Disarm and Emergency stop. Movement modes, axes, ballast systems and
 movement ownership remain unavailable. Arm is rejected; the ground station must
 not treat a successful connection or telemetry decode as movement authorization.
 Emergency stop still follows the existing durable-latch rules. No vehicle-local
 reset pin/procedure, sensor calibration or ballast completion feedback is invented.
 
-The next integration stage is a reviewed vehicle profile, fresh FlySky adapter,
-physical owner/reset inputs and actuator adapters behind the common safety manager.
-Ballast hardware and powered validation remain separate prerequisites.
+The [Mega BCP bench build](../../../Documentation/Wiring/MEGA_ACTUATORS.md#mega-bcp-bench-control-profile)
+uses the shared BCP session manager with physical owner, stop and reset inputs.
+The in-water profile still requires calibrated depth and ballast feedback.

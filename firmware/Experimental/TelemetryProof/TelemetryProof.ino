@@ -26,17 +26,11 @@
  * Sketch -> Include Library -> Add .zip library
  */
 
-/*
- * Uncomment one of these to enable debug logging to
- * the serial monitor. INFO is the least verbose to
- * TRACE should positivly overwhelm you with logging.
- */
-// #define DEBUG_TRACE
-// #define DEBUG_WARN
-// #define DEBUG_ERROR
-// #define DEBUG_INFO
-
 #if !defined(BAJOLS_ENABLE_LEGACY_CONTROL)
+
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+#error "BAJOLS_LEGACY_SHIELD_ENGINE_PWM requires BAJOLS_ENABLE_LEGACY_CONTROL."
+#endif
 
 #include "bcpVehicle.h"
 
@@ -45,171 +39,207 @@ void setup() {
   bajols::vehicle::Begin();
 }
 
-// Bounded serial, persistence and instrument publication; no blocking LED startup.
+// Bounded serial, persistence and instrument publication; no blocking LED
+// startup.
 void loop() {
   bajols::vehicle::Step();
 }
 
 #else
+#if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
+#error "BCP bench control and legacy FlySky control are separate builds."
+#endif
 #if !defined(__AVR_ATmega2560__)
-#error "Legacy FlySky/actuator control is ATmega2560-only; use the default BCP build on ESP32."
+#error \
+    "Legacy FlySky/actuator control is ATmega2560-only; use the default BCP build on ESP32."
 #endif
 // Explicit compatibility build. This legacy path directly drives real outputs
 // and does not provide BCP command arbitration.
 
+#include <Adafruit_PWMServoDriver.h>
 #include <IBusBM.h>
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
 
-#include "motor.h"
-#include "input.h"
-#include "output.h"
 #include "debug.h"
-#include "Servo.h"
+#include "input.h"
+#include "motor.h"
+#include "output.h"
 
-/*
- * Version number
- */
-const String VERSION = "0.0.3";
-constexpr uint32_t READ_DELAY = 100;
-constexpr uint32_t BAUD_RATE = 115200;
+namespace {
+namespace legacy = bajols::legacy;
 
-constexpr uint8_t WATER_SOLENOID_PIN = 27;
-constexpr uint8_t ENGINE_INPUT_1 = 22;
-constexpr uint8_t ENGINE_INPUT_2 = 23;
-constexpr uint8_t ENGINE_PWM = 11;
-constexpr uint8_t ENGINE_ENCODER_TRIGGER_1 = 2;
-constexpr uint8_t ENGINE_ENCODER_TRIGGER_2 = 3;
+constexpr uint32_t kReadIntervalMs = 100;
+constexpr uint32_t kBaudRate = 115200;
 
-constexpr uint8_t WATER_PUMP_INPUT_1 = 24;
-constexpr uint8_t WATER_PUMP_INPUT_2 = 25;
+constexpr uint8_t kEngineInput1 = 22;
+constexpr uint8_t kEngineInput2 = 23;
+constexpr uint8_t kEngineEncoderTrigger1 = 2;
+constexpr uint8_t kEngineEncoderTrigger2 = 3;
 
-constexpr uint8_t RUDDER = 0;
-constexpr uint8_t DIVE_PLANE = 1;
+constexpr uint8_t kWaterPumpInput1 = 24;
+constexpr uint8_t kWaterPumpInput2 = 25;
 
-/* Rx data received from controller */
-Data::Input Rx;
+constexpr uint8_t kActivityLedPin = 8;
+constexpr uint8_t kRudderChannel = 0;
+constexpr uint8_t kDivePlaneChannel = 1;
 
-/* Tx data we are sending to controller */
-Data::Output Tx;
+Adafruit_PWMServoDriver pwm;
 
-/* The main screw */
-Motor::HBridgePWMEnc engine(ENGINE_INPUT_1, ENGINE_INPUT_2, ENGINE_PWM, ENGINE_ENCODER_TRIGGER_1, ENGINE_ENCODER_TRIGGER_2);
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+constexpr uint8_t kEnginePwmChannel = 2;
+constexpr uint8_t kPumpEnableChannel = 3;
+bool shield_ready = false;
 
-Motor::HBridge waterPump(WATER_PUMP_INPUT_1, WATER_PUMP_INPUT_2);
+bool WriteEnginePwm(uint8_t duty) {
+  if (duty == legacy::kMinPwmValue) {
+    return pwm.setPWM(kEnginePwmChannel, 0, 4096) == 0;
+  }
+  if (duty == legacy::kMaxPwmValue) {
+    return pwm.setPWM(kEnginePwmChannel, 4096, 0) == 0;
+  }
+  const uint16_t ticks = (static_cast<uint32_t>(duty) * 4096 + 127) / 255;
+  return pwm.setPWM(kEnginePwmChannel, 0, ticks) == 0;
+}
 
-/* Rudder for steering */
-Servo rudder;
+bool WritePumpEnable(bool enabled) {
+  return pwm.setPWM(kPumpEnableChannel, enabled ? 4096 : 0,
+                    enabled ? 0 : 4096) == 0;
+}
+#else
+constexpr uint8_t kEnginePwm = 11;
+#endif
 
-/* Diveplane for changing depth */
-Servo divePlane;
+// Commands from the FlySky receiver.
+legacy::Input receiver;
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+// Telemetry sent back to the transmitter.
+legacy::Output telemetry;
 
-/* Stores previous values of rudder/diveplane so we aren't rewriting same value to servo over and over */
-int32_t oldRudder = Data::MID_POINT;
-int32_t oldDivePlane = Data::MID_POINT;
-Data::ThreeWaySwitchPos oldswC = Data::ThreeWaySwitchPos::UP;
-int32_t oldThrottle = Data::MIN_RAW_INPUT;
-Data::SwitchPos oldswA = Data::SwitchPos::UP;
+// Main propulsion motor.
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+legacy::HBridgePwmEncoder engine(kEngineInput1, kEngineInput2, WriteEnginePwm,
+                                 kEngineEncoderTrigger1,
+                                 kEngineEncoderTrigger2);
+#else
+legacy::HBridgePwmEncoder engine(kEngineInput1, kEngineInput2, kEnginePwm,
+                                 kEngineEncoderTrigger1,
+                                 kEngineEncoderTrigger2);
+#endif
 
-/* Used for timing with no delay */
-uint32_t previousMillis = 0;
+legacy::HBridge water_pump(kWaterPumpInput1, kWaterPumpInput2);
 
-uint8_t nextLedState = LOW;
+void SetWaterPump(bool fill) {
+  if (fill) {
+    water_pump.Forward();
+  } else {
+    water_pump.Off();
+  }
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+  if (!WritePumpEnable(fill)) {
+    water_pump.Off();
+    engine.Off();
+    shield_ready = false;
+  }
+#endif
+}
 
-void setup()
-{
-  DEBUG_BEGIN(BAUD_RATE);
-  // Serial.begin(BAUD_RATE);
+// Cache previous commands to skip redundant actuator writes.
+int32_t previous_rudder_us = legacy::kServoCenterUs;
+int32_t previous_dive_plane_us = legacy::kServoCenterUs;
+legacy::ThreeWaySwitchPos previous_switch_c = legacy::ThreeWaySwitchPos::kUp;
+int32_t previous_throttle = legacy::kMinRawInput;
+legacy::SwitchPos previous_switch_a = legacy::SwitchPos::kUp;
+
+// Last receiver update time.
+uint32_t previous_update_ms = 0;
+
+uint8_t next_led_state = LOW;
+}  // namespace
+
+void setup() {
+  DEBUG_BEGIN(kBaudRate);
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+  Wire.setWireTimeout(2500, true);
+  if (!pwm.begin()) {
+    return;
+  }
+#else
   pwm.begin();
+#endif
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(50);
-  pwm.writeMicroseconds(RUDDER, oldRudder);
-  pwm.writeMicroseconds(DIVE_PLANE, oldDivePlane);
-  Rx.Begin();
-  Tx.Begin();
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+  const bool engine_disabled = WriteEnginePwm(0);
+  const bool pump_disabled = WritePumpEnable(false);
+  shield_ready = engine_disabled && pump_disabled;
+  if (!shield_ready) {
+    return;
+  }
+#endif
+  pwm.writeMicroseconds(kRudderChannel, previous_rudder_us);
+  pwm.writeMicroseconds(kDivePlaneChannel, previous_dive_plane_us);
+  receiver.Begin();
+  telemetry.Begin();
 
-  // Normally I'd write a small class to work water pump
-  // but it's literally an on off relay so meh
-  pinMode(WATER_SOLENOID_PIN, OUTPUT);
-  digitalWrite(WATER_SOLENOID_PIN, LOW);
-
-  pinMode(8, OUTPUT);
-  digitalWrite(8, LOW);
+  pinMode(kActivityLedPin, OUTPUT);
+  digitalWrite(kActivityLedPin, LOW);
 
   DEBUG_PRINTLN_INFO("Starting");
   uint32_t current = millis();
-  while (current < 5000)
-  {
-    digitalWrite(8, HIGH);
+  while (current < 5000) {
+    digitalWrite(kActivityLedPin, HIGH);
     delay(100);
-    digitalWrite(8, LOW);
+    digitalWrite(kActivityLedPin, LOW);
     delay(50);
     current = millis();
   }
 }
 
 void loop() {
+#if defined(BAJOLS_LEGACY_SHIELD_ENGINE_PWM)
+  if (!shield_ready) {
+    return;
+  }
+#endif
 
   uint32_t current = millis();
-  bool takeAction = (current - previousMillis) > READ_DELAY;
+  bool update_due = (current - previous_update_ms) > kReadIntervalMs;
 
-  if (takeAction)
-  {
-    digitalWrite(8, nextLedState);
-    nextLedState = nextLedState == LOW ? HIGH : LOW;
-    previousMillis = current;
-    Rx.Read();
+  if (update_due) {
+    digitalWrite(kActivityLedPin, next_led_state);
+    next_led_state = next_led_state == LOW ? HIGH : LOW;
+    previous_update_ms = current;
+    receiver.Read();
 
-    if (oldThrottle != Rx.throttle || oldswA != Rx.swA)
-    {
-      oldThrottle = Rx.throttle;
-      oldswA = Rx.swA;
-      engine.set(Rx.swA == Data::SwitchPos::UP ? Motor::Direction::FORWARD : Motor::Direction::BACKWARD, Rx.throttle);
+    if (previous_throttle != receiver.throttle ||
+        previous_switch_a != receiver.switch_a) {
+      previous_throttle = receiver.throttle;
+      previous_switch_a = receiver.switch_a;
+      engine.Set(receiver.switch_a == legacy::SwitchPos::kUp
+                     ? legacy::Direction::kForward
+                     : legacy::Direction::kBackward,
+                 receiver.throttle);
     }
 
-    uint16_t rpm = engine.getRpm();
+    uint16_t rpm = engine.GetRpm();
 
-    if (Rx.rudder != oldRudder)
-    {
-      pwm.writeMicroseconds(RUDDER, Rx.rudder);
-      oldRudder = Rx.rudder;
+    if (receiver.rudder_us != previous_rudder_us) {
+      pwm.writeMicroseconds(kRudderChannel, receiver.rudder_us);
+      previous_rudder_us = receiver.rudder_us;
     }
 
-    if (Rx.divePlane != oldDivePlane)
-    {
-      pwm.writeMicroseconds(DIVE_PLANE, Rx.divePlane);
-      oldDivePlane = Rx.divePlane;
+    if (receiver.dive_plane_us != previous_dive_plane_us) {
+      pwm.writeMicroseconds(kDivePlaneChannel, receiver.dive_plane_us);
+      previous_dive_plane_us = receiver.dive_plane_us;
     }
 
-    if (Rx.swC != oldswC)
-    {
-      oldswC = Rx.swC;
-      switch(Rx.swC)
-      {
-        case Data::ThreeWaySwitchPos::UP:
-          // Let water out, solenoid open, pump off
-          digitalWrite(WATER_SOLENOID_PIN, LOW);
-          waterPump.off();
-          break;
-        case Data::ThreeWaySwitchPos::MIDDLE:
-          // Pull water in, solenoid open, pump on
-          digitalWrite(WATER_SOLENOID_PIN, LOW);
-          waterPump.forward();
-          break;
-        case Data::ThreeWaySwitchPos::DOWN:
-          // Hold water, solenoid closed, pump off
-          digitalWrite(WATER_SOLENOID_PIN, HIGH);
-          waterPump.off();
-          break;
-      }
-
+    if (receiver.switch_c != previous_switch_c) {
+      previous_switch_c = receiver.switch_c;
+      SetWaterPump(receiver.switch_c == legacy::ThreeWaySwitchPos::kMiddle);
     }
 
-
-    Tx.SetSensors(Rx, rpm);
-    digitalWrite(8, LOW);
+    telemetry.SetSensors(receiver, rpm);
+    digitalWrite(kActivityLedPin, LOW);
   }
 }
 
