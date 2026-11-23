@@ -1,10 +1,10 @@
 # Firmware builds and persistent identity provisioning
 
-This guide covers the actuator-disabled BCP firmware on **Arduino Mega 2560** and
+This guide covers the standard BCP firmware on **Arduino Mega 2560** and
 **classic ESP32 Dev Module with 4 MB flash**. The wire protocol and 192-byte journal
 record format are the same. The storage adapters and programming commands differ.
 Other ESP32 boards need their own FQBN, flash-size/partition and USB settings checked;
-the legacy FlySky/actuator experiment remains Mega-only.
+the BCP actuator bench build and legacy FlySky experiment are both Mega-only.
 
 All commands below are manual examples, run from the repository root in Bash.
 Replace serial ports with your actual board. Close the ground station and Serial
@@ -35,11 +35,10 @@ journal to recover a connection: that can reuse session identities. Preserve the
 bundle and unique ID in your vehicle records. Recovery of used media is a separate
 service procedure, not a flag in these tools.
 
-Initial emergency records are **latched**. Connected status may therefore show an
-emergency stop; it is not a provisioning failure. Neither platform advertises
-movement modes, axes or ballast support, and neither can arm. There is no remote
-emergency reset. Physical reset procedure, real sensor drivers and actuator control
-remain a later integration stage.
+Initial emergency records are **latched**, so a newly provisioned board can
+report an emergency stop on first connection. The standard runtime on both
+platforms keeps Arm unavailable. The Mega bench build provides a physical
+latch reset and limited actuator control.
 
 ## Toolchains
 
@@ -85,7 +84,7 @@ arbitration, and is deliberately rejected on ESP32.
 To move the main H-bridge PWM input to the servo shield, build with both legacy
 flags and follow the [Mega actuator wiring](../Documentation/Wiring/MEGA_ACTUATORS.md).
 For ground-station actuator testing, use the opt-in
-[BCP bench build and switch pinout](../Documentation/Wiring/MEGA_ACTUATORS.md#mega-bcp-bench-control-profile).
+[Mega actuator bench build](#mega-compile-and-upload-with-actuator-writes).
 
 ### Monitoring-only target
 
@@ -203,6 +202,45 @@ arduino-cli upload --fqbn arduino:avr:mega --port "$MEGA_PORT" --input-dir /tmp/
 
 Actual boot-counter/latch writes now occur. Do not run initial-image verification
 after the runtime has advanced the counter; it is no longer the initial image.
+
+### Mega: compile and upload with actuator writes
+
+Use a provisioned Mega 2560 on a dry bench with the propeller removed. Complete
+steps 1–3 above for a new board. Reuse the existing identity and EEPROM base
+from the provisioning manifest for an already provisioned board. Set
+`MEGA_PORT` to the Mega's USB serial port.
+
+```sh
+arduino-cli compile --fqbn arduino:avr:mega \
+  --libraries firmware/Libraries \
+  --output-dir /tmp/bajols-build/mega-bcp-bench \
+  --build-property 'compiler.cpp.extra_flags=-DBAJOLS_BCP_ENABLE_BENCH_CONTROL -DBAJOLS_BCP_ENABLE_EEPROM_WRITES -DBAJOLS_BCP_EEPROM_BASE=0 -DBAJOLS_BCP_WRITE_TIMEOUT_MS=10' \
+  firmware/Experimental/TelemetryProof
+
+arduino-cli upload --fqbn arduino:avr:mega --port "$MEGA_PORT" \
+  --input-dir /tmp/bajols-build/mega-bcp-bench firmware/Experimental/TelemetryProof
+```
+
+Replace the example EEPROM base of `0` if the manifest records a different base.
+`BAJOLS_BCP_ENABLE_BENCH_CONTROL` enables actuator output.
+`BAJOLS_BCP_ENABLE_EEPROM_WRITES` permits the boot-counter and emergency-latch
+journal writes required by this profile. The build uses the AVR core's `Wire`
+library and the repository's `BajolsProtocol` library. Add
+`-DBAJOLS_BCP_DEMO_TELEMETRY` to the build flags if you want simulated instruments.
+
+Follow the [Mega bench wiring and switch pinout](../Documentation/Wiring/MEGA_ACTUATORS.md#mega-bcp-bench-control-profile).
+The profile drives yaw and pitch, limits propulsion PWM to 20%, and holds the
+ballast outputs off.
+
+1. Connect the ground station at 115200 baud using the provisioned vehicle ID.
+2. Close D28 to select PC ownership and verify that the normally closed D29
+   stop loop is healthy. If the emergency latch is set, press and release D30
+   with the stop loop closed.
+3. Center all axes and hold Space or the gamepad's left shoulder for one
+   continuous second of fresh neutral input, then select **Arm**.
+4. Verify control-surface direction and unloaded motor direction. Check that
+   Disarm, loss of PC ownership, command timeout and an opened D29 loop each
+   stop motor output and center the servos.
 
 ## ESP32: initial provisioning
 
@@ -322,9 +360,9 @@ dotnet run --project groundstation/Bajols.GroundStation -- --config /absolute/pa
 
 Close other serial applications and press Connect. Supported telemetry types can
 be reported unavailable until drivers exist; add `-DBAJOLS_BCP_DEMO_TELEMETRY` to
-the writable build flags only for explicitly simulated instrument testing. No
-movement/ballast capability is advertised, Arm stays unavailable, and an initially
-latched emergency is retained. Board reset logs are not BCP telemetry.
+the writable build flags only for explicitly simulated instrument testing. The
+standard writable runtime keeps Arm unavailable and retains an initially latched
+emergency. For the Mega bench build, follow the arming sequence above. Board reset logs are not BCP telemetry.
 
 ## Troubleshooting
 
@@ -333,8 +371,9 @@ latched emergency is retained. Board reset logs are not BCP telemetry.
   ESP32 also needs the supplied partition table and all six NVS blobs.
 - **Vehicle ID mismatch:** copy the physical board's manifest ID, not the simulator
   ID or its USB serial number. Do not solve this by reprovisioning a used journal.
-- **Connected but Arm unavailable:** expected for this actuator-disabled stage.
-  Initial emergency state is latched and movement capabilities are not advertised.
+- **Connected but Arm unavailable:** the standard runtime has actuator output
+  disabled. On the Mega bench build, check PC ownership, the stop loop and
+  emergency latch, then qualify neutral input before arming.
 - **No instrument values:** default sources report unavailable. Explicit demo
   telemetry is simulated; actual sensors still need drivers and calibration.
 - **Dump/image rejected:** verify exact sizes and use the matching platform tool.

@@ -81,8 +81,9 @@ is the electrical reference. A breakout does not automatically imply a 5 V-toler
 SPI interface. ESP32 logic is the preferred starting point for the two bridges;
 any 5 V MCU connection needs compatible level handling.
 
-Exact SPI/UART GPIO assignments remain open. Select them after checking the actual
-ESP32 board, boot-strapping pins, flash connections and any other peripherals.
+The [ESP32 bridge sketch](../../firmware/Experimental/BcpRadioBridge/README.md)
+assigns the shore and buoy SPI, interrupt, reset and buoy UART pins for a classic
+ESP32-WROOM Dev Module.
 
 ### Tether endpoint wiring
 
@@ -160,12 +161,9 @@ sets `RF69_MAX_DATA_LEN` to **61 application bytes**. BCP frames can reach
 fits a single ordinary driver packet. The FIFO size alone is not a universal
 hardware payload limit; a more complex streaming driver is a separate option.
 
-Recommended first implementation: bounded RF fragmentation/reassembly underneath
-BCP, with explicit limits and expiry. The fragment format, packet identifiers,
-RF acknowledgement policy, half-duplex schedule, retry limits and reassembly
-expiry still need a transport design. No RF packet layout is assigned here.
-Most small control frames fit one driver packet; larger telemetry/object frames
-need the chosen transport's larger-frame handling.
+The [bridge transport](../../firmware/Experimental/BcpRadioBridge/README.md#rf-transport)
+uses bounded RF fragmentation, a half-duplex shore-poll/buoy-reply schedule and
+expiry of incomplete frames. Most small control frames fit one radio packet.
 
 Bridge requirements:
 
@@ -193,16 +191,12 @@ not replace that identity or provide command authorization.
 
 ## Implementation status and next decisions
 
-Implemented in this checkout: C++/C# BCP, USB serial communication, bounded vehicle
-runtime, simulated peer, object reports and Mega/ESP32 persistent-startup support.
-The vehicle firmware still advertises no actuator support and cannot arm.
-
-**Not implemented yet:** RFM69 driver integration, shore/buoy bridge targets, RF
-fragmentation/scheduling, tether UART selection and a validated physical tether.
-The current vehicle sketch binds BCP to `Serial`; connecting a transceiver to a
-different UART will require firmware transport selection. The current desktop
-serial transport can serve a future USB shore bridge, but it does not currently
-configure or drive an RFM69 itself.
+The [bridge sketch](../../firmware/Experimental/BcpRadioBridge/README.md#build)
+provides ESP32 shore and buoy builds. The existing desktop serial transport can
+open the shore adapter as a normal BCP port. The current vehicle sketch binds
+BCP to `Serial`; a transceiver connected to another vehicle UART requires
+firmware transport selection. Physical tether and RF performance validation
+remain open.
 
 Before wiring/implementation, settle the intended shore–buoy distance, tether
 length, exact carrier/module revisions, SPI/interrupt/UART pins, 3.3 V power budget,
