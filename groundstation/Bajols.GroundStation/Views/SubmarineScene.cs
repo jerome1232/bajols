@@ -262,7 +262,7 @@ public sealed class SubmarineScene : Control
     }
 
     /// <summary>
-    /// Draws the fixed compass plane and a depth-sorted shaded model only with fresh pose data.
+    /// Draws the fixed compass plane and a live or static submarine model.
     /// </summary>
     public override void Render(DrawingContext context)
     {
@@ -282,7 +282,7 @@ public sealed class SubmarineScene : Control
                     DrawForwardGuide(context);
                 }
 
-                DrawVehicle(context);
+                DrawVehicle(context, Rotation());
                 if (ForwardObstacles is { } observations)
                 {
                     for (int i = 0; i < Math.Min(64, observations.Count); i++)
@@ -294,6 +294,13 @@ public sealed class SubmarineScene : Control
                             DrawForwardObstacle(context, sample);
                         }
                     }
+                }
+            }
+            else
+            {
+                using (context.PushOpacity(0.55))
+                {
+                    DrawVehicle(context, Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2));
                 }
             }
 
@@ -440,9 +447,8 @@ public sealed class SubmarineScene : Control
     /// <summary>
     /// Rotates actual model vertices, computes lit normals, and paints far surfaces before near ones.
     /// </summary>
-    private void DrawVehicle(DrawingContext context)
+    private void DrawVehicle(DrawingContext context, Quaternion rotation)
     {
-        Quaternion rotation = Rotation();
         var projected = new List<ProjectedFacet>(Mesh.Length);
         foreach (Facet facet in Mesh)
         {

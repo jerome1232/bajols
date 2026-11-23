@@ -101,8 +101,9 @@ rounded hull, sail, periscope, fins and propeller rotate together, with shaded
 surfaces drawn in depth order. The camera stays south of the fixed compass plane:
 north points into the screen, south toward the viewer, east right and west left.
 Positive measured pitch raises the nose; the input controls do not directly rotate
-the display. Missing, invalid or stale heading/pitch hides the model and marks
-attitude unconfirmed. Heading wraps continuously across north. Roll is not shown.
+the display. When heading or pitch is missing, invalid or stale, the display shows a
+dimmed, side-on model labeled "ATTITUDE UNAVAILABLE · STATIC MODEL". Heading wraps
+continuously across north. Roll is not shown.
 The renderer uses existing Avalonia drawing APIs and .NET geometry math; no new
 3D package or hardware control behavior is introduced.
 

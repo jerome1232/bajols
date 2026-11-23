@@ -1016,7 +1016,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IAsyncDisposab
     /// <summary>
     /// Attitude provenance or unconfirmed-state label displayed above the 3D view.
     /// </summary>
-    public string AttitudeSource => !HasAttitude ? "ATTITUDE UNAVAILABLE / UNCONFIRMED" : IsSimulation ? "SIMULATED ATTITUDE · ILLUSTRATIVE MOTION" : "VEHICLE ATTITUDE";
+    public string AttitudeSource => !HasAttitude ? "ATTITUDE UNAVAILABLE · STATIC MODEL" : IsSimulation ? "SIMULATED ATTITUDE · ILLUSTRATIVE MOTION" : "VEHICLE ATTITUDE";
 
     /// <summary>
     /// Fresh depth formatted in metres with provenance, or an unavailable placeholder.
