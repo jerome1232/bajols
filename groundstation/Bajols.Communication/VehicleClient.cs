@@ -256,9 +256,12 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
 
             using var connecting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
             await transport.OpenAsync(connecting.Token);
+            // Complete the same task for cancellation and handshake outcomes so
+            // stopping the loops cannot mask a handshake failure.
+            using var cancelHandshake = connecting.Token.Register(() => ready.TrySetCanceled(connecting.Token));
             readerTask = Task.Run(() => ReadLoop(lifetime.Token));
             pumpTask = Task.Run(() => PumpLoop(lifetime.Token));
-            await ready.Task.WaitAsync(TimeSpan.FromSeconds(3), connecting.Token);
+            await ready.Task.WaitAsync(TimeSpan.FromSeconds(3));
         }
         catch (Exception e)
         {
