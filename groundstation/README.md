@@ -7,6 +7,19 @@ status dashboard.
 It starts disconnected and never automatically connects, clears failsafe or arms.
 Load a YAML configuration before connecting.
 
+## 1. Bench test actuators over USB serial
+
+Use the [Mega USB bench build](../firmware/BUILD_AND_PROVISION.md#mega-compile-and-upload-with-actuator-writes).
+Load a [serial YAML](../firmware/BUILD_AND_PROVISION.md#connect-the-ground-station)
+with the Mega’s USB port and the provisioned vehicle ID. Press **Connect**, select
+PC ownership on the Mega, then follow the bench arming sequence in the build guide.
+
+## 2. Bench test with RF modules
+
+For the RFM69HCW bridge, set the serial YAML’s `port` to the shore ESP32’s USB
+serial port and keep `expected_vehicle_id` set to the provisioned BCP peer’s ID.
+Load the YAML before connecting. [Radio bridge builds and bench setup](../firmware/Experimental/BcpRadioBridge/README.md#build) · [RF and tether wiring](../Documentation/Wiring/RF_BUOY_TETHER.md)
+
 ## Build, test and run
 
 Install a .NET 10 SDK. From this directory:
@@ -297,10 +310,3 @@ perspective projection and edge clamping. This enlarged visual scale is independ
 of the six-metre reporting/display limit and distance-based warning prominence.
 Distant markers can reach the view edge; their labels retain reported distance.
 Neither the model dimensions nor marker spacing establish calibrated hull clearance.
-
-## Buoy radio link
-
-For the experimental RFM69HCW bridge, set `port` in the serial YAML to the shore
-ESP32's USB serial port and keep `expected_vehicle_id` set to the submarine's
-provisioned ID. Load that YAML before connecting. Vehicle identity and command
-authority remain on the submarine across the bridged link. [RF buoy and tether wiring](../Documentation/Wiring/RF_BUOY_TETHER.md) · [Radio bridge firmware](../firmware/Experimental/BcpRadioBridge/README.md)

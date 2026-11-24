@@ -42,7 +42,7 @@ drivers. [PCA9685 datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf)
 
 ## Build the shield PWM variant
 
-Extract the [bundled legacy libraries](../../README.md#compile) into
+Extract the [bundled legacy libraries](../../firmware/Experimental/TelemetryProof/README.md#legacy-flysky-build) into
 `/tmp/bajols-legacy-libraries` as shown in the README, then compile from the
 repository root:
 
@@ -105,25 +105,9 @@ requirements.
 
 ### Build and connect
 
-Use a provisioned Mega. Set the EEPROM base to the base recorded in the
-provisioning manifest. This example uses base 0 and enables optional demo
-telemetry.
-
-```sh
-arduino-cli compile --fqbn arduino:avr:mega \
-  --libraries firmware/Libraries \
-  --output-dir /tmp/bajols-build/mega-bcp-bench \
-  --build-property 'compiler.cpp.extra_flags=-DBAJOLS_BCP_ENABLE_BENCH_CONTROL -DBAJOLS_BCP_ENABLE_EEPROM_WRITES -DBAJOLS_BCP_EEPROM_BASE=0 -DBAJOLS_BCP_WRITE_TIMEOUT_MS=10 -DBAJOLS_BCP_DEMO_TELEMETRY' \
-  firmware/Experimental/TelemetryProof
-```
-
-Upload the build over the Mega's USB port using the
-[standard Mega upload procedure](../../firmware/BUILD_AND_PROVISION.md#4-compile-and-manually-upload-the-writable-runtime)
-with `--input-dir /tmp/bajols-build/mega-bcp-bench`. Connect the ground
-station with the provisioned vehicle ID and the Mega serial port at 115200.
-Close D28 and restore the D29 stop loop. If the stop is latched, press and
-release D30. Hold Space or the gamepad's left shoulder with all axes centered,
-then select **Arm** after neutral qualification.
+Follow the [USB serial bench build, upload and actuator checks](../../firmware/BUILD_AND_PROVISION.md#mega-compile-and-upload-with-actuator-writes).
+Use the EEPROM base and vehicle ID from the provisioning manifest. The ground
+station connects to the Mega’s USB port at 115200 baud.
 
 If the PCA9685 fails to initialize, loses its configuration, or rejects an
 output write, the Mega sets both L298N direction inputs low and asserts the

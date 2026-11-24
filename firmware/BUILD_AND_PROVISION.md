@@ -11,6 +11,14 @@ Replace serial ports with your actual board. Close the ground station and Serial
 Monitor before service operations. Compile CI and offline tests never upload,
 provision, erase a board or change ground-station configuration.
 
+## Bench build paths
+
+1. [USB serial actuator bench build](#mega-compile-and-upload-with-actuator-writes)
+   for a Mega 2560 connected directly to the ground station.
+2. [RF bench setup](Experimental/BcpRadioBridge/README.md#build) for the two ESP32
+   bridges, followed by the [Mega Serial1 tether build](#mega-use-the-rf-buoy-and-rs-422-tether)
+   when testing a tethered vehicle.
+
 ## Storage and safety boundary
 
 | Item | Mega 2560 | ESP32 Dev Module |

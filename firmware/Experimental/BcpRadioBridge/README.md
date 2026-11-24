@@ -3,6 +3,8 @@
 Build this sketch for two classic ESP32 Dev Modules with SparkFun 915 MHz
 RFM69HCW breakouts. The default build is the USB shore adapter. The buoy build
 forwards to a 3.3 V UART connected to the full-duplex tether transceiver.
+For direct actuator checks, start with the
+[Mega USB serial bench build](../../BUILD_AND_PROVISION.md#mega-compile-and-upload-with-actuator-writes).
 
 | Radio signal | ESP32 GPIO |
 |---|---|
@@ -39,7 +41,7 @@ arduino-cli compile -b esp32:esp32:esp32 --libraries firmware/Libraries \
 Flash the corresponding build to each ESP32. In the serial YAML, set `port` to
 the shore adapter's serial port and `expected_vehicle_id` to the ID of the actual
 BCP vehicle or test peer. Select the file with **Load YAML…** before connecting.
-For a USB-to-USB bench test, wire the buoy's UART to a 3.3 V USB-UART
+For a USB-to-USB transport check with actuators disabled, wire the buoy's UART to a 3.3 V USB-UART
 adapter with TX/RX crossed and common ground, then attach a BCP test peer to
 that port. For a tethered Mega, build its vehicle firmware with
 [`BAJOLS_BCP_USE_SERIAL1`](../../BUILD_AND_PROVISION.md#mega-use-the-rf-buoy-and-rs-422-tether)
