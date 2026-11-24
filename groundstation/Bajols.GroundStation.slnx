@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bajols.Desktop.Tests/Bajols.Desktop.Tests.csproj" />
+    <Project Path="tests/Bajols.Integration.Tests/Bajols.Integration.Tests.csproj" />
+    <Project Path="tests/Bajols.Protocol.Tests/Bajols.Protocol.Tests.csproj" />
+  </Folder>
+  <Project Path="Bajols.Communication/Bajols.Communication.csproj" />
+  <Project Path="Bajols.Configuration/Bajols.Configuration.csproj" />
+  <Project Path="Bajols.Core/Bajols.Core.csproj" />
+  <Project Path="Bajols.GroundStation/Bajols.GroundStation.csproj" />
+  <Project Path="Bajols.Input/Bajols.Input.csproj" />
+  <Project Path="Bajols.Protocol/Bajols.Protocol.csproj" />
+  <Project Path="Bajols.Simulator/Bajols.Simulator.csproj" />
+</Solution>

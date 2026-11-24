@@ -26,4 +26,4 @@ jobs:
           # Always use this setting for official repositories. Remove for 3rd party projects.
           official: false
           project-type: sketch
-          path: src/Experimental/TelemetryProof
+          path: firmware/Experimental/TelemetryProof

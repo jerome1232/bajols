@@ -1,0 +1,11 @@
+schema_version: 1
+transport: simulator
+port: ""
+expected_vehicle_id: "42414A4F4C532D53494D554C41544F52"
+baud_rate: 115200
+read_timeout_ms: 100
+write_timeout_ms: 250
+buffer_bytes: 4096
+dead_zone: 0.05
+input_freshness_ms: 200
+telemetry_freshness_ms: 1000

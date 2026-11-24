@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" PrivateAssets="all" />
+    <ProjectReference Include="../../Bajols.Communication/Bajols.Communication.csproj" />
+    <ProjectReference Include="../../Bajols.Configuration/Bajols.Configuration.csproj" />
+    <ProjectReference Include="../../Bajols.Input/Bajols.Input.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,44 @@
+name: Compile ESP32 Firmware
+
+on:
+  push:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/compile-esp32.yml"
+  pull_request:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/compile-esp32.yml"
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [read-only, demo-writable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: 1.6.0
+      - name: Install pinned ESP32 core
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.9 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      - name: Compile actuator-disabled vehicle firmware
+        shell: bash
+        run: |
+          build_flags=()
+          if [[ '${{ matrix.mode }}' == 'demo-writable' ]]; then
+            build_flags=(--build-property 'compiler.cpp.extra_flags=-DBAJOLS_BCP_ENABLE_EEPROM_WRITES -DBAJOLS_BCP_EEPROM_BASE=0 -DBAJOLS_BCP_WRITE_TIMEOUT_MS=3000 -DBAJOLS_BCP_DEMO_TELEMETRY')
+          fi
+          arduino-cli compile --fqbn esp32:esp32:esp32 --libraries firmware/Libraries "${build_flags[@]}" firmware/Experimental/TelemetryProof
+      - name: Compile portable fixtures and monitoring target
+        if: matrix.mode == 'read-only'
+        shell: bash
+        run: |
+          for sketch in BcpCodecCheck BcpSessionCheck BcpSerialCheck BcpStorageCheck BcpMonitor; do
+            arduino-cli compile --fqbn esp32:esp32:esp32 --libraries firmware/Libraries "firmware/Experimental/$sketch"
+          done

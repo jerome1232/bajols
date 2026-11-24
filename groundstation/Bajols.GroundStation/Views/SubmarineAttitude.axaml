@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Bajols.GroundStation.ViewModels"
+             xmlns:views="using:Bajols.GroundStation.Views"
+             x:Class="Bajols.GroundStation.Views.SubmarineAttitude"
+             x:DataType="vm:MainWindowViewModel">
+  <StackPanel Spacing="8">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+      <TextBlock Text="VEHICLE ATTITUDE · 3D" Foreground="{DynamicResource StationMuted}" FontSize="13" />
+      <TextBlock Grid.Column="1" Text="{Binding AttitudeSource}" Foreground="{DynamicResource StationNotice}" FontSize="11" TextWrapping="Wrap" />
+    </Grid>
+    <Border Background="{DynamicResource StationDisplay}" CornerRadius="{DynamicResource StationPanelRadius}" Padding="8">
+      <StackPanel Spacing="6">
+        <Grid>
+          <views:SubmarineScene x:Name="AttitudeScene" Height="316" TopOverlayHeight="88"
+                              Phosphor="{DynamicResource StationPhosphor}"
+                              Heading="{Binding HeadingAngle}" Pitch="{Binding PitchAngle}"
+                              HasAttitude="{Binding HasAttitude}" HasForwardRange="{Binding HasForwardRange}"
+                              ForwardObstacles="{Binding ForwardObstacles}"
+                              ObstaclePulse="{Binding ForwardObstaclePulse}"
+                              AutomationProperties.Name="3D vehicle attitude. North into the screen, south toward you, east right, west left." />
+          <Grid x:Name="TelemetryOverlay" HorizontalAlignment="Center" VerticalAlignment="Top"
+                Width="480" Margin="0,94,0,0" ColumnDefinitions="*,*" IsHitTestVisible="False">
+            <StackPanel Spacing="1" HorizontalAlignment="Left">
+              <TextBlock Text="{Binding Voltage}" FontSize="16" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="1" HorizontalAlignment="Right">
+              <TextBlock Text="{Binding MotorRpm}" FontSize="16" FontWeight="SemiBold" />
+            </StackPanel>
+          </Grid>
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,380,8"
+                      Spacing="1" IsHitTestVisible="False">
+            <TextBlock x:Name="HeadingDirection" Text="{Binding HeadingDirection}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock x:Name="HeadingDegrees" Text="{Binding HeadingDegreesLabel}" Foreground="{DynamicResource StationMuted}" FontSize="11" HorizontalAlignment="Center" />
+          </StackPanel>
+          <Canvas x:Name="DepthGauge" Width="140" Height="64" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="400,88,0,0" IsHitTestVisible="False"
+                  AutomationProperties.Name="Depth scale: surface at zero metres, maximum at 4.5 metres">
+            <Border Canvas.Left="36" Canvas.Top="8" Width="8" Height="48" CornerRadius="3">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                  <GradientStop Offset="0" Color="#69CCC4" />
+                  <GradientStop Offset="0.7" Color="#F2C879" />
+                  <GradientStop Offset="1" Color="#F14959" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border x:Name="DepthMarker" Canvas.Left="31" Canvas.Top="{Binding DepthIndicatorOffset}" Width="18" Height="4"
+                    Background="{Binding DepthWarningBrush}" BorderBrush="{DynamicResource StationMarker}" BorderThickness="1"
+                    IsVisible="{Binding HasDepth}" />
+            <TextBlock Canvas.Left="0" Canvas.Top="0" Text="0 m" Foreground="{DynamicResource StationMuted}" FontSize="11" />
+            <TextBlock Canvas.Left="0" Canvas.Top="48" Text="4.5 m" Foreground="#F14959" FontSize="11" />
+            <TextBlock x:Name="DepthReadout" Canvas.Left="54" Canvas.Top="24" Text="{Binding Depth}"
+                       Foreground="{Binding DepthWarningBrush}" FontSize="12" FontWeight="SemiBold" />
+          </Canvas>
+          <Border x:Name="VehicleStatusOverlay" HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Width="280" Margin="8,88,8,8" Padding="10,4" CornerRadius="{DynamicResource StationInsetRadius}" Background="{DynamicResource StationOverlay}">
+            <StackPanel Spacing="3">
+              <TextBlock Text="VEHICLE STATUS" Foreground="{DynamicResource StationMuted}" FontSize="11" />
+              <TextBlock Text="{Binding VehicleStatusLabel}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ControlSourceLabel}" FontSize="12" Foreground="{DynamicResource StationMuted}" />
+              <TextBlock Text="{Binding BuoyancyStatus}" FontSize="12" Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap" />
+              <StackPanel Spacing="3" IsVisible="{Binding ShowNeutralHold}">
+                <TextBlock Text="{Binding NeutralHoldLabel}" FontSize="12" />
+                <ProgressBar x:Name="NeutralHoldProgress" Minimum="0" Maximum="1000" Height="6"
+                             Value="{Binding NeutralHoldProgress}" Foreground="{DynamicResource StationAccent}"
+                             AutomationProperties.Name="One-second neutral input qualification" />
+              </StackPanel>
+              <TextBlock Text="{Binding Qualification}" FontSize="12" Foreground="{DynamicResource StationNotice}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding Restrictions}" FontSize="12" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastAction}" FontSize="11" Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastFault}" FontSize="11" Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Width="244" Margin="8,88,8,8" Spacing="4">
+            <TextBlock Text="FORWARD RETURNS · 0–6 M" Foreground="{DynamicResource StationMuted}" FontSize="12" />
+            <TextBlock x:Name="ForwardRangeSummary" Text="{Binding ForwardRangeSummary}" Foreground="{DynamicResource StationNotice}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <StackPanel IsVisible="{Binding IsSimulation}" Spacing="2">
+              <CheckBox x:Name="SimulateForwardObstacle" Content="Body-relative test return" IsChecked="{Binding SimulateForwardObstacle}" />
+              <Grid ColumnDefinitions="52,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="2">
+                <TextBlock Text="{Binding SimulatedObstacleMetres, StringFormat='{}{0:0.##} m'}" Foreground="{DynamicResource StationMuted}" VerticalAlignment="Center" FontSize="11" />
+                <Slider Grid.Column="1" x:Name="SimulatedObstacleDistance" Minimum="0" Maximum="6" Height="24" MinHeight="0"
+                        Value="{Binding SimulatedObstacleMetres}"
+                        AutomationProperties.Name="Simulated forward obstacle distance in metres" />
+                <TextBlock Grid.Row="1" Text="{Binding SimulatedObstacleBearing, StringFormat='{}{0:+0;-0;0}°'}" Foreground="{DynamicResource StationMuted}" VerticalAlignment="Center" FontSize="11" />
+                <Slider Grid.Row="1" Grid.Column="1" x:Name="SimulatedObstacleBearing" Minimum="-90" Maximum="90" Height="24" MinHeight="0"
+                        Value="{Binding SimulatedObstacleBearing}"
+                        AutomationProperties.Name="Simulated relative bearing; negative port, positive starboard" />
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="PlaceSimulatedObject" Content="Place object" Command="{Binding PlaceObjectCommand}" Padding="6,2" FontSize="11" />
+                <Button x:Name="ClearSimulatedObjects" Content="Clear objects" Command="{Binding ClearObjectsCommand}" Padding="6,2" FontSize="11" />
+              </StackPanel>
+            </StackPanel>
+            <TextBlock Text="Schematic positions · sensor FoV and mounting not calibrated."
+                       Foreground="{DynamicResource StationMuted}" FontSize="11" TextWrapping="Wrap" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="24">
+          <TextBlock Text="{Binding PitchLabel}" Foreground="{DynamicResource StationHighlight}" FontSize="12" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

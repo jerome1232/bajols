@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Bajols.GroundStation.Views.ControlsDialog"
+        Title="Controls" Width="660" SizeToContent="Height" MaxHeight="620"
+        WindowStartupLocation="CenterOwner" CanResize="False" Background="{DynamicResource StationBackground}"
+        FontFamily="{DynamicResource StationFont}">
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="16">
+      <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+            ColumnSpacing="12" RowSpacing="8">
+        <TextBlock Text="Action" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="1" Text="Keyboard / on-screen" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="2" Text="Gamepad" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="1" Text="Hold to enable input" />
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="Space" />
+        <TextBlock Grid.Row="1" Grid.Column="2" Text="Left shoulder" />
+        <TextBlock Grid.Row="2" Text="Pitch · nose up / down" />
+        <TextBlock Grid.Row="2" Grid.Column="1" Text="F / R" />
+        <TextBlock Grid.Row="2" Grid.Column="2" Text="Left stick up / down" />
+        <TextBlock Grid.Row="3" Text="Yaw · port / starboard" />
+        <TextBlock Grid.Row="3" Grid.Column="1" Text="A / D" />
+        <TextBlock Grid.Row="3" Grid.Column="2" Text="Left stick left / right" />
+        <TextBlock Grid.Row="4" Text="Throttle · ahead / reverse" />
+        <TextBlock Grid.Row="4" Grid.Column="1" Text="W / S" />
+        <TextBlock Grid.Row="4" Grid.Column="2" Text="Right stick up / down" />
+        <TextBlock Grid.Row="5" Text="Arm" />
+        <TextBlock Grid.Row="5" Grid.Column="1" Text="Arm button" />
+        <TextBlock Grid.Row="5" Grid.Column="2" Text="Right trigger" />
+        <TextBlock Grid.Row="6" Text="Clear failsafe" />
+        <TextBlock Grid.Row="6" Grid.Column="1" Text="Clear failsafe button" />
+        <TextBlock Grid.Row="6" Grid.Column="2" Text="Right shoulder" />
+        <TextBlock Grid.Row="7" Text="Disarm" />
+        <TextBlock Grid.Row="7" Grid.Column="1" Text="Disarm button" />
+        <TextBlock Grid.Row="7" Grid.Column="2" Text="Left trigger" />
+        <TextBlock Grid.Row="8" Text="Emergency stop" />
+        <TextBlock Grid.Row="8" Grid.Column="1" Text="Emergency stop button" />
+        <TextBlock Grid.Row="8" Grid.Column="2" Text="A (south face button)" />
+        <TextBlock Grid.Row="9" Text="Positive / negative buoyancy" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="9" Grid.Column="1" Text="Buoyancy slider" />
+        <TextBlock Grid.Row="9" Grid.Column="2" Text="D-pad up / down" />
+        <TextBlock Grid.Row="10" Text="Neutral buoyancy" />
+        <TextBlock Grid.Row="10" Grid.Column="1" Text="Buoyancy slider center" />
+        <TextBlock Grid.Row="10" Grid.Column="2" Text="D-pad left / right" />
+      </Grid>
+      <TextBlock Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap"
+                 Text="Center the movement controls while holding input enable to qualify as neutral. Hold left shoulder to select buoyancy with the D-pad." />
+      <TextBlock Foreground="{DynamicResource StationMuted}" TextWrapping="Wrap"
+                 Text="Opening this dialog releases held input. After closing it, press Space or left shoulder again to resume input." />
+      <Button x:Name="CloseControlsButton" Content="Close" IsCancel="True"
+              HorizontalAlignment="Right" Click="CloseDialog" />
+    </StackPanel>
+  </ScrollViewer>
+</Window>

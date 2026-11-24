@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Bajols.GroundStation.Views.MovementPad"
+             Focusable="True"
+             AutomationProperties.Name="Pitch and yaw pad. Up is nose up.">
+  <Viewbox Stretch="Uniform">
+    <Canvas x:Name="InputSurface" Width="280" Height="240" Background="Transparent">
+      <TextBlock Canvas.Top="5" Width="280" Text="NOSE UP" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource StationMuted}" />
+      <TextBlock Canvas.Top="218" Width="280" Text="NOSE DOWN" TextAlignment="Center" FontSize="12" Foreground="{DynamicResource StationMuted}" />
+      <TextBlock Canvas.Left="0" Canvas.Top="114" Text="PORT" FontSize="10" Foreground="{DynamicResource StationMuted}" />
+      <TextBlock Canvas.Left="254" Canvas.Top="114" Text="STBD" FontSize="10" Foreground="{DynamicResource StationMuted}" />
+      <Ellipse Canvas.Left="62" Canvas.Top="42" Width="156" Height="156"
+               Fill="{DynamicResource StationDisplay}" Stroke="{DynamicResource StationOutline}" StrokeThickness="2" />
+      <Ellipse Canvas.Left="101" Canvas.Top="81" Width="78" Height="78"
+               Stroke="{DynamicResource StationInnerGrid}" StrokeThickness="1" StrokeDashArray="3,4" />
+      <Line StartPoint="140,42" EndPoint="140,198" Stroke="{DynamicResource StationCrosshair}" StrokeDashArray="4,4" />
+      <Line StartPoint="62,120" EndPoint="218,120" Stroke="{DynamicResource StationCrosshair}" StrokeDashArray="4,4" />
+      <TextBlock x:Name="PitchUpPercentage" Canvas.Top="25" Width="280" Text="0%"
+                 TextAlignment="Center" FontSize="12" Foreground="{DynamicResource StationAccent}" IsHitTestVisible="False" />
+      <TextBlock x:Name="PitchDownPercentage" Canvas.Top="201" Width="280" Text="0%"
+                 TextAlignment="Center" FontSize="12" Foreground="{DynamicResource StationAccent}" IsHitTestVisible="False" />
+      <TextBlock x:Name="PortPercentage" Canvas.Left="28" Canvas.Top="112" Width="32" Text="0%"
+                 TextAlignment="Center" FontSize="11" Foreground="{DynamicResource StationAccent}" IsHitTestVisible="False" />
+      <TextBlock x:Name="StarboardPercentage" Canvas.Left="220" Canvas.Top="112" Width="32" Text="0%"
+                 TextAlignment="Center" FontSize="11" Foreground="{DynamicResource StationAccent}" IsHitTestVisible="False" />
+      <Ellipse Canvas.Left="136" Canvas.Top="116" Width="8" Height="8" Fill="{DynamicResource StationOutline}" />
+      <Line x:Name="IntentVector" StartPoint="140,120" EndPoint="140,120" Stroke="{DynamicResource StationAccent}" StrokeThickness="3" />
+      <Ellipse x:Name="Puck" Canvas.Left="131" Canvas.Top="111" Width="18" Height="18"
+               Fill="{DynamicResource StationAccent}" Stroke="{DynamicResource StationHighlight}" StrokeThickness="2" />
+    </Canvas>
+  </Viewbox>
+</UserControl>

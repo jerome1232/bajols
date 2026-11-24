@@ -1,0 +1,33 @@
+name: Firmware Protocol Tests
+
+on:
+  push:
+    paths:
+      - "firmware/Libraries/BajolsProtocol/**"
+      - "firmware/tests/bcp/**"
+      - "firmware/tools/**"
+      - "protocol/**"
+      - ".github/workflows/test-firmware-protocol.yml"
+  pull_request:
+    paths:
+      - "firmware/Libraries/BajolsProtocol/**"
+      - "firmware/tests/bcp/**"
+      - "firmware/tools/**"
+      - "protocol/**"
+      - ".github/workflows/test-firmware-protocol.yml"
+  workflow_dispatch:
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Protocol, session, serial and storage power-loss tests
+        run: python3 firmware/tests/bcp/run_native_tests.py
+      - name: Address and undefined-behavior sanitizers
+        run: python3 firmware/tests/bcp/run_native_tests.py --sanitize
+      - name: Verify real Espressif NVS provisioning images
+        run: |
+          python3 -m venv /tmp/bajols-nvs-tools
+          /tmp/bajols-nvs-tools/bin/python -m pip install esp-idf-nvs-partition-gen==0.3.0
+          /tmp/bajols-nvs-tools/bin/python firmware/tests/bcp/nvs_generator_smoke.py
