@@ -2,10 +2,7 @@ name: Publish Ground Station
 
 on:
   push:
-    branches: [develop]
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    branches: [main]
 
 permissions:
   contents: read
@@ -16,31 +13,15 @@ jobs:
     outputs:
       display: ${{ steps.version.outputs.display }}
       linux: ${{ steps.version.outputs.linux }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - id: version
         shell: bash
         run: |
-          if [[ "$GITHUB_REF_TYPE" == branch ]]; then
-            core=0.0.0
-            suffix="dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
-          elif [[ "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
-            core="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
-            suffix="${BASH_REMATCH[5]}"
-          else
-            echo "::error::Expected a tag like v1.2.3 or v1.2.3-rc.1"
-            exit 1
-          fi
-
-          if [[ -n "$suffix" ]]; then
-            echo "display=$core-$suffix"
-            echo "linux=$core~${suffix//-/.}"
-            echo "prerelease=true"
-          else
-            echo "display=$core"
-            echo "linux=$core"
-            echo "prerelease=false"
-          fi >> "$GITHUB_OUTPUT"
+          suffix="dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          {
+            echo "display=0.0.0-$suffix"
+            echo "linux=0.0.0~$suffix"
+          } >> "$GITHUB_OUTPUT"
 
   package:
     needs: version
@@ -96,43 +77,3 @@ jobs:
             groundstation/packages/*.deb
             groundstation/packages/*.rpm
           if-no-files-found: error
-
-  release:
-    if: github.ref_type == 'tag'
-    needs: [version, package]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    concurrency:
-      group: groundstation-release-${{ github.ref }}
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      PRERELEASE: ${{ needs.version.outputs.prerelease }}
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: groundstation-*
-          path: packages
-          merge-multiple: true
-      - name: Publish release assets
-        shell: bash
-        run: |
-          shopt -s nullglob
-          exe=(packages/*.exe)
-          deb=(packages/*.deb)
-          rpm=(packages/*.rpm)
-          if (( ${#exe[@]} != 1 || ${#deb[@]} != 1 || ${#rpm[@]} != 1 )); then
-            echo "::error::Expected one installer, one Debian package, and one RPM package."
-            exit 1
-          fi
-          assets=("${exe[@]}" "${deb[@]}" "${rpm[@]}")
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
-          else
-            flags=(--verify-tag --generate-notes)
-            if [[ "$PRERELEASE" == true ]]; then
-              flags+=(--prerelease)
-            fi
-            gh release create "$GITHUB_REF_NAME" "${assets[@]}" "${flags[@]}"
-          fi

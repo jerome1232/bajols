@@ -30,11 +30,9 @@ intentionally when changing dependencies.
 ## Install packaged builds
 
 The packaging workflow builds an x64 Windows installer (`.exe`), Debian package
-(`.deb`), and Fedora-compatible RPM (`.rpm`). For pushes to `develop`, open
+(`.deb`), and Fedora-compatible RPM (`.rpm`). On pushes to `main`, open
 the **Publish Ground Station** run in GitHub Actions and download the Windows
-and Linux artifacts. Tags such as `v1.2.3` and `v1.2.3-rc.1` also attach the
-three packages to the corresponding GitHub release. A new release for a
-suffixed tag is marked as a prerelease. [Workflow source](../.github/workflows/publish-groundstation.yml)
+and Linux artifacts. [Workflow source](../.github/workflows/publish-groundstation.yml)
 
 Run the Windows installer, or install the downloaded Linux package with
 `sudo apt install ./<package>.deb` or `sudo dnf install ./<package>.rpm`.

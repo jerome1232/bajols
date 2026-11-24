@@ -49,8 +49,8 @@ domain, input, configuration and UI code. It starts disconnected and includes an
 encoded BCP simulator, explicit session/control actions, validated YAML, live status
 and bounded serial communication. Select a YAML file with **Load YAML…** before
 connecting. The example YAML selects simulation.
-The publish workflow builds Windows and Linux packages and attaches them to tagged
-releases. [Ground station installation](groundstation/README.md#install-packaged-builds)
+The publish workflow uploads Windows and Linux packages as GitHub Actions
+artifacts on pushes to `main`. [Ground station installation](groundstation/README.md#install-packaged-builds)
 Telemetry and plain-language vehicle status overlay the 3D view, including neutral
 qualification progress and a colour-coded 0–4.5 m depth gauge. The control panel
 provides a combined movement pad, pitch slider and three-position buoyancy selector.
