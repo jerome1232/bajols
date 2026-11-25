@@ -20,6 +20,37 @@ constexpr size_t kMaxWireSize = 116;
 /// Maximum telemetry records in one bounded payload.
 constexpr uint8_t kMaxTelemetryRecords = 11;
 
+/// Interval between movement command transmissions in milliseconds.
+constexpr uint16_t kMovementIntervalMs = 50;
+/// Maximum age of accepted command input in milliseconds.
+constexpr uint16_t kCommandTimeoutMs = 500;
+/// Interval between control ticket publications in milliseconds.
+constexpr uint16_t kTicketIntervalMs = 50;
+/// Maximum age of a control ticket in milliseconds.
+constexpr uint16_t kTicketLifetimeMs = 500;
+/// Duration of fresh neutral input required for arming in milliseconds.
+constexpr uint16_t kNeutralHoldMs = 1000;
+/// Maximum absolute effort treated as neutral.
+constexpr int16_t kNeutralTolerance = 50;
+/// Absolute endpoint of the signed movement effort scale.
+constexpr int16_t kFullEffort = 1000;
+/// Lifetime of an unconfirmed session handshake in milliseconds.
+constexpr uint16_t kHandshakeTimeoutMs = 2000;
+/// Periodic status interval in milliseconds when the status is unchanged.
+constexpr uint16_t kStatusIntervalMs = 200;
+/// Periodic heartbeat interval in milliseconds.
+constexpr uint16_t kHeartbeatIntervalMs = 1000;
+/// Repeat interval for active faults in milliseconds.
+constexpr uint16_t kFaultRepeatIntervalMs = 1000;
+/// Duration of qualifying input before releasing depth intervention.
+constexpr uint16_t kDepthReleaseHoldMs = 1000;
+/// Baud rate of the BCP v1 serial profile.
+constexpr uint32_t kSerialBaudRate = 115200;
+/// Wire sentinel for an unknown sample or command age.
+constexpr uint16_t kUnknownAgeMs = UINT16_MAX;
+/// Largest age representable without using the unknown sentinel.
+constexpr uint16_t kMaxKnownAgeMs = kUnknownAgeMs - 1;
+
 /// Permitted direction of one typed message.
 enum class Direction : uint8_t {
   /// PcToVehicle numeric value.

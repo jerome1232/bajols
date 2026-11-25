@@ -5,6 +5,25 @@ namespace Bajols.Simulator;
 /// <summary>Deterministic BCP peer and safety model, not firmware or a physical ballast simulation.</summary>
 public sealed class SimulatedVehicle
 {
+    // Maximum discrete request results retained for replay.
+    private const int CachedResultCapacity = 16;
+    // Maximum issued tickets retained for validation.
+    private const int TicketCapacity = 16;
+    // Interval between simulated telemetry reports in milliseconds.
+    private const int TelemetryIntervalMs = 200;
+    // Interval between simulated object reports in milliseconds.
+    private const int ObjectReportIntervalMs = 200;
+    // Depth at which the simulated vehicle intervenes.
+    private const int InterventionDepthMm = 4500;
+    // Depth below which simulated depth intervention can release.
+    private const int ReleaseDepthMm = 4000;
+    // Initial simulated vehicle depth in millimetres.
+    private const int InitialDepthMm = 2000;
+    // Conversion from simulated position in metres to millimetres.
+    private const double MillimetresPerMetre = 1000d;
+    // Conversion from simulation tick time to seconds.
+    private const double MillisecondsPerSecond = 1000d;
+
     /// <summary>
     /// Stable opaque identity used by the example simulator configuration.
     /// </summary>
@@ -131,7 +150,7 @@ public sealed class SimulatedVehicle
         double horizontal = forwardMm * Math.Cos(pitch);
         placedObjects.Add((eastMm + horizontal * Math.Sin(heading) + starboardMm * Math.Cos(heading),
             northMm + horizontal * Math.Cos(heading) - starboardMm * Math.Sin(heading),
-            depthMetres * 1000 - forwardMm * Math.Sin(pitch)));
+            depthMetres * MillimetresPerMetre - forwardMm * Math.Sin(pitch)));
     }
 
     /// <summary>Removes all stationary points and the optional synthetic test return.</summary>
@@ -151,7 +170,7 @@ public sealed class SimulatedVehicle
         {
             double east = point.East - eastMm;
             double north = point.North - northMm;
-            double down = point.Down - depthMetres * 1000;
+            double down = point.Down - depthMetres * MillimetresPerMetre;
             double horizontal = east * Math.Sin(heading) + north * Math.Cos(heading);
             double starboard = east * Math.Cos(heading) - north * Math.Sin(heading);
             double forwardMm = horizontal * Math.Cos(pitch) - down * Math.Sin(pitch);
@@ -334,7 +353,7 @@ public sealed class SimulatedVehicle
     /// <summary>
     /// Continuous simulated depth in metres, retained between integer telemetry updates.
     /// </summary>
-    private double depthMetres = 2;
+    private double depthMetres = InitialDepthMm / MillimetresPerMetre;
 
     /// <summary>
     /// Current simulated clockwise magnetic heading in degrees from zero to less than 360.
@@ -412,7 +431,7 @@ public sealed class SimulatedVehicle
     /// <summary>
     /// Current simulated depth below the water surface in millimetres.
     /// </summary>
-    public int DepthMm { get; private set; } = 2000;
+    public int DepthMm { get; private set; } = InitialDepthMm;
 
     /// <summary>
     /// Whether an established PC session currently exists.
@@ -494,12 +513,12 @@ public sealed class SimulatedVehicle
     /// <summary>
     /// Checks the independent receipt and issuing-ticket deadlines of the accepted movement intent.
     /// </summary>
-    private bool MovementFresh(uint now) => hasMovement && Age(now, movementAt) < 500 && Age(now, movementTicketAt) < 500;
+    private bool MovementFresh(uint now) => hasMovement && Age(now, movementAt) < BcpV1.CommandTimeoutMs && Age(now, movementTicketAt) < BcpV1.TicketLifetimeMs;
 
     /// <summary>
     /// Checks the independent receipt and issuing-ticket deadlines of the normal buoyancy target.
     /// </summary>
-    private bool BuoyancyFresh(uint now) => hasBuoyancy && Age(now, buoyancyAt) < 500 && Age(now, buoyancyTicketAt) < 500;
+    private bool BuoyancyFresh(uint now) => hasBuoyancy && Age(now, buoyancyAt) < BcpV1.CommandTimeoutMs && Age(now, buoyancyTicketAt) < BcpV1.TicketLifetimeMs;
 
     /// <summary>
     /// Changes the simulated physical source selector, disarming active control while preserving safety latches.
@@ -539,7 +558,7 @@ public sealed class SimulatedVehicle
         }
 
         DepthMm = millimetres;
-        depthMetres = millimetres / 1000d;
+        depthMetres = millimetres / MillimetresPerMetre;
         if (!healthy && depthHealthy && depthFaultOccurrences < uint.MaxValue)
         {
             depthFaultOccurrences++;
@@ -552,7 +571,7 @@ public sealed class SimulatedVehicle
         }
 
         // Simulation-only profile: intervene at 4.5 m, release below 4 m. Not hardware calibration.
-        if (millimetres >= 4500 && !restricted)
+        if (millimetres >= InterventionDepthMm && !restricted)
         {
             restricted = true;
             ChangeGeneration(preserveMovement: true);
@@ -657,7 +676,7 @@ public sealed class SimulatedVehicle
     /// </summary>
     private void Safety(uint now)
     {
-        if (pending && Age(now, pendingSince) >= 2000)
+        if (pending && Age(now, pendingSince) >= BcpV1.HandshakeTimeoutMs)
         {
             pending = false;
         }
@@ -668,7 +687,7 @@ public sealed class SimulatedVehicle
             Enter(SafetyState.FaultFailsafe, SafetyCause.DepthUnavailable);
         }
 
-        if (State == SafetyState.Armed && ((!fresh && hasMovement) || (!hasMovement && Age(now, armedSince) >= 500)))
+        if (State == SafetyState.Armed && ((!fresh && hasMovement) || (!hasMovement && Age(now, armedSince) >= BcpV1.CommandTimeoutMs)))
         {
             Enter(SafetyState.CommandLossFailsafe, SafetyCause.MovementExpired);
         }
@@ -684,11 +703,11 @@ public sealed class SimulatedVehicle
             hasBuoyancy = false;
         }
 
-        neutralProgress = neutralSince is uint start && fresh ? (ushort)Math.Min(1000u, Age(now, start)) : (ushort)0;
-        if (restricted && State == SafetyState.Armed && depthHealthy && DepthMm < 4000 && fresh && hasBuoyancy && target == BuoyancyTarget.Neutral && dive <= 0)
+        neutralProgress = neutralSince is uint start && fresh ? (ushort)Math.Min(BcpV1.NeutralHoldMs, Age(now, start)) : (ushort)0;
+        if (restricted && State == SafetyState.Armed && depthHealthy && DepthMm < ReleaseDepthMm && fresh && hasBuoyancy && target == BuoyancyTarget.Neutral && dive <= 0)
         {
             releaseSince ??= now;
-            if (Age(now, releaseSince.Value) >= 1000)
+            if (Age(now, releaseSince.Value) >= BcpV1.DepthReleaseHoldMs)
             {
                 restricted = false;
                 ChangeGeneration(preserveMovement: true);
@@ -713,7 +732,7 @@ public sealed class SimulatedVehicle
             return false;
         }
 
-        if (!tickets.TryGetValue(id, out issued) || Age(now, issued) >= 500)
+        if (!tickets.TryGetValue(id, out issued) || Age(now, issued) >= BcpV1.TicketLifetimeMs)
         {
             failure = CommandResultCode.UnknownOrExpiredTicket;
             return false;
@@ -729,7 +748,7 @@ public sealed class SimulatedVehicle
     public IReadOnlyList<BcpPacket> Receive(BcpPacket packet, uint now)
     {
         Safety(now);
-        Span<byte> validation = stackalloc byte[116];
+        Span<byte> validation = stackalloc byte[FrameCodec.MaxWireSize];
         if (!BcpCodec.TryEncode(packet, WireDirection.PcToVehicle, validation, out _, out _))
         {
             return [];
@@ -834,7 +853,7 @@ public sealed class SimulatedVehicle
                 forward = m.Forward;
                 yaw = m.Yaw;
                 dive = m.Dive;
-                if (Math.Abs((int)forward) <= 50 && Math.Abs((int)yaw) <= 50 && Math.Abs((int)dive) <= 50)
+                if (Math.Abs((int)forward) <= BcpV1.NeutralTolerance && Math.Abs((int)yaw) <= BcpV1.NeutralTolerance && Math.Abs((int)dive) <= BcpV1.NeutralTolerance)
                 {
                     neutralSince ??= now;
                 }
@@ -967,7 +986,7 @@ public sealed class SimulatedVehicle
                                         }
                                         else
                                         {
-                                            if (!MovementFresh(now) || neutralProgress < 1000)
+                                            if (!MovementFresh(now) || neutralProgress < BcpV1.NeutralHoldMs)
                                             {
                                                 code = CommandResultCode.NeutralHoldIncomplete;
                                             }
@@ -1002,7 +1021,7 @@ public sealed class SimulatedVehicle
         }
 
         var result = new CommandResult(id, message.Type, code, Generation);
-        if (results.Count == 16)
+        if (results.Count == CachedResultCapacity)
         {
             results.Remove(resultOrder.Dequeue());
         }
@@ -1025,7 +1044,7 @@ public sealed class SimulatedVehicle
             return output;
         }
 
-        if (Age(now, lastTicket) >= 50 && !SuppressTickets)
+        if (Age(now, lastTicket) >= BcpV1.TicketIntervalMs && !SuppressTickets)
         {
             lastTicket = now;
             if (ticketId == uint.MaxValue)
@@ -1036,45 +1055,45 @@ public sealed class SimulatedVehicle
             }
 
             uint id = ++ticketId;
-            if (tickets.Count == 16)
+            if (tickets.Count == TicketCapacity)
             {
                 tickets.Remove(ticketOrder.Dequeue());
             }
 
             tickets[id] = now;
             ticketOrder.Enqueue(id);
-            output.Add(Emit(new ControlTicket(id, Generation, 500)));
+            output.Add(Emit(new ControlTicket(id, Generation, BcpV1.TicketLifetimeMs)));
         }
 
         var currentStatus = Status(now);
-        if ((Age(now, lastStatus) >= 200 || currentStatus.StatusRevision != lastSentRevision) && !SuppressStatus)
+        if ((Age(now, lastStatus) >= BcpV1.StatusIntervalMs || currentStatus.StatusRevision != lastSentRevision) && !SuppressStatus)
         {
             lastStatus = now;
             output.Add(Emit(currentStatus));
         }
 
         bool depthFault = !depthHealthy;
-        if (depthFault != reportedDepthFault || depthFault && Age(now, lastFault) >= 1000)
+        if (depthFault != reportedDepthFault || depthFault && Age(now, lastFault) >= BcpV1.FaultRepeatIntervalMs)
         {
             lastFault = now;
             reportedDepthFault = depthFault;
             output.Add(Emit(new Fault(FaultCode.DepthUnavailable, FaultSeverity.Blocking, depthFault, depthFaultOccurrences)));
         }
 
-        if (Age(now, lastTelemetry) >= 200 && !SuppressTelemetry)
+        if (Age(now, lastTelemetry) >= TelemetryIntervalMs && !SuppressTelemetry)
         {
             lastTelemetry = now;
             var quality = TelemetryQuality.Valid | TelemetryQuality.Simulated;
             output.Add(Emit(new Telemetry(new TelemetryRecord[] { new(MeasurementId.Depth, depthHealthy ? quality : TelemetryQuality.SensorFault | TelemetryQuality.Simulated, 0, DepthMm), new(MeasurementId.SupplyVoltage, quality, 0, 12000), new(MeasurementId.Heading, quality, 0, (int)Math.Round(HeadingDegrees * 100) % 36000), new(MeasurementId.Pitch, quality, 0, (int)Math.Round(PitchDegrees * 100)), new(MeasurementId.PropulsionRpm, quality, 0, Math.Abs(ThrustEffort) * 3) })));
         }
 
-        if (Age(now, lastObjects) >= 200 && !SuppressObjects)
+        if (Age(now, lastObjects) >= ObjectReportIntervalMs && !SuppressObjects)
         {
             lastObjects = now;
             output.Add(Emit(AcquireObjects()));
         }
 
-        if (Age(now, lastHeartbeat) >= 1000)
+        if (Age(now, lastHeartbeat) >= BcpV1.HeartbeatIntervalMs)
         {
             lastHeartbeat = now;
             output.Add(Emit(new Heartbeat()));
@@ -1089,12 +1108,12 @@ public sealed class SimulatedVehicle
      // Illustrative kinematics only: not hydrodynamics or a validated ballast controller.
     private void AdvanceMotion(uint now)
     {
-        double dt = lastMotionAt is uint previous ? Math.Min(0.1, Age(now, previous) / 1000d) : 0;
+        double dt = lastMotionAt is uint previous ? Math.Min(0.1, Age(now, previous) / MillisecondsPerSecond) : 0;
         lastMotionAt = now;
-        double targetPitch = -DiveEffort / 1000d * 25;
+        double targetPitch = -DiveEffort / (double)BcpV1.FullEffort * 25;
         PitchDegrees += (targetPitch - PitchDegrees) * (1 - Math.Exp(-dt * 4));
-        double steeringAuthority = Math.Abs(ThrustEffort) / 1000d;
-        HeadingDegrees = (HeadingDegrees + YawEffort / 1000d * steeringAuthority * 30 * dt + 360) % 360;
+        double steeringAuthority = Math.Abs(ThrustEffort) / (double)BcpV1.FullEffort;
+        HeadingDegrees = (HeadingDegrees + YawEffort / (double)BcpV1.FullEffort * steeringAuthority * 30 * dt + 360) % 360;
         double ballastVelocity = Buoyancy switch
         {
             BuoyancyAction.SeekPositive => -0.15,
@@ -1102,12 +1121,12 @@ public sealed class SimulatedVehicle
             BuoyancyAction.EmergencyEvacuation => -0.7,
             _ => 0
         };
-        double forwardVelocity = ThrustEffort / 1000d * 0.6;
-        double horizontalStepMm = forwardVelocity * Math.Cos(PitchDegrees * Math.PI / 180) * dt * 1000;
+        double forwardVelocity = ThrustEffort / (double)BcpV1.FullEffort * 0.6;
+        double horizontalStepMm = forwardVelocity * Math.Cos(PitchDegrees * Math.PI / 180) * dt * MillimetresPerMetre;
         eastMm += horizontalStepMm * Math.Sin(HeadingDegrees * Math.PI / 180);
         northMm += horizontalStepMm * Math.Cos(HeadingDegrees * Math.PI / 180);
         depthMetres = Math.Max(0, depthMetres + (-forwardVelocity * Math.Sin(PitchDegrees * Math.PI / 180) + ballastVelocity) * dt);
-        int depth = (int)Math.Round(depthMetres * 1000);
+        int depth = (int)Math.Round(depthMetres * MillimetresPerMetre);
         if (depth != DepthMm)
         {
             double precise = depthMetres;
@@ -1151,7 +1170,8 @@ public sealed class SimulatedVehicle
     /// <summary>
     /// Describes only the control functions and measurements implemented by this simulated peer.
     /// </summary>
-    public static Capabilities GetCapabilities() => new(1, 1, 7, 31, 0x3d, 50, 500, 50, 500, 1000, 50);
+    public static Capabilities GetCapabilities() => new(1, 1, 7, 31, 0x3d, BcpV1.MovementIntervalMs, BcpV1.CommandTimeoutMs,
+        BcpV1.TicketIntervalMs, BcpV1.TicketLifetimeMs, BcpV1.NeutralHoldMs, BcpV1.NeutralTolerance);
 
     /// <summary>
     /// Builds a current safety snapshot with independent freshness, blocker and buoyancy-action reporting.
@@ -1170,12 +1190,12 @@ public sealed class SimulatedVehicle
             blockers |= ArmingBlockers.StaleOwner;
         }
 
-        if (hasMovement && (Math.Abs((int)forward) > 50 || Math.Abs((int)yaw) > 50 || Math.Abs((int)dive) > 50))
+        if (hasMovement && (Math.Abs((int)forward) > BcpV1.NeutralTolerance || Math.Abs((int)yaw) > BcpV1.NeutralTolerance || Math.Abs((int)dive) > BcpV1.NeutralTolerance))
         {
             blockers |= ArmingBlockers.NonNeutralInput;
         }
 
-        if (neutralProgress < 1000)
+        if (neutralProgress < BcpV1.NeutralHoldMs)
         {
             blockers |= ArmingBlockers.NeutralHoldIncomplete;
         }
@@ -1198,15 +1218,15 @@ public sealed class SimulatedVehicle
             previousBlockers = blockers;
         }
 
-        ushort remaining = MovementFresh(now) ? (ushort)Math.Min(500 - Age(now, movementAt), 500 - Age(now, movementTicketAt)) : (ushort)0;
-        ushort bRemaining = BuoyancyFresh(now) ? (ushort)Math.Min(500 - Age(now, buoyancyAt), 500 - Age(now, buoyancyTicketAt)) : (ushort)0;
+        ushort remaining = MovementFresh(now) ? (ushort)Math.Min(BcpV1.CommandTimeoutMs - Age(now, movementAt), BcpV1.TicketLifetimeMs - Age(now, movementTicketAt)) : (ushort)0;
+        ushort bRemaining = BuoyancyFresh(now) ? (ushort)Math.Min(BcpV1.CommandTimeoutMs - Age(now, buoyancyAt), BcpV1.TicketLifetimeMs - Age(now, buoyancyTicketAt)) : (ushort)0;
         ActiveRestrictions restrictions = restricted ? ActiveRestrictions.DepthLimitActive | ActiveRestrictions.DownwardControlInhibited : ActiveRestrictions.None;
         if (!depthHealthy)
         {
             restrictions |= ActiveRestrictions.DepthUnavailable | ActiveRestrictions.DownwardControlInhibited;
         }
 
-        var snapshot = new VehicleStatus(revision, now, State, Owner, ControlMode.Effort, Generation, blockers, neutralProgress, acceptedInGeneration ? (ushort)Math.Min(65534u, Age(now, movementAt)) : ushort.MaxValue, remaining, Buoyancy, !depthHealthy && Buoyancy == BuoyancyAction.SeekNeutral ? ActionStatus.Unavailable : Buoyancy == BuoyancyAction.None ? ActionStatus.Inactive : State == SafetyState.EmergencyStopLatched ? ActionStatus.Completed : ActionStatus.Running, Cause, EstimatedBuoyancy.Unknown, !hasBuoyancy ? AuthorizedBuoyancyTarget.None : target switch
+        var snapshot = new VehicleStatus(revision, now, State, Owner, ControlMode.Effort, Generation, blockers, neutralProgress, acceptedInGeneration ? (ushort)Math.Min(BcpV1.MaxKnownAgeMs, Age(now, movementAt)) : BcpV1.UnknownAgeMs, remaining, Buoyancy, !depthHealthy && Buoyancy == BuoyancyAction.SeekNeutral ? ActionStatus.Unavailable : Buoyancy == BuoyancyAction.None ? ActionStatus.Inactive : State == SafetyState.EmergencyStopLatched ? ActionStatus.Completed : ActionStatus.Running, Cause, EstimatedBuoyancy.Unknown, !hasBuoyancy ? AuthorizedBuoyancyTarget.None : target switch
         {
             BuoyancyTarget.Positive => AuthorizedBuoyancyTarget.Positive,
             BuoyancyTarget.Negative => AuthorizedBuoyancyTarget.Negative,

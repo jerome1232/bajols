@@ -123,7 +123,7 @@ void Begin() {
 #if defined(BAJOLS_BCP_ENABLE_BENCH_CONTROL)
   bench_hardware.Begin();
 #endif
-  bcp_serial.begin(115200, SERIAL_8N1);
+  bcp_serial.begin(bcp::kSerialBaudRate, SERIAL_8N1);
   if (bcp::InitializeBoardStorage(storage)) {
     runtime.Begin();
   }

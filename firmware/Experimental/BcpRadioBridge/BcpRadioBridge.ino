@@ -184,9 +184,9 @@ class Bridge {
   bool begin() {
     serialLink.setRxBufferSize(512);
     if (kBuoy) {
-      serialLink.begin(115200, SERIAL_8N1, 16, 17);
+      serialLink.begin(bcp::kSerialBaudRate, SERIAL_8N1, 16, 17);
     } else {
-      serialLink.begin(115200, SERIAL_8N1);
+      serialLink.begin(bcp::kSerialBaudRate, SERIAL_8N1);
     }
     slot_ = esp_random();
     return radio_.begin();

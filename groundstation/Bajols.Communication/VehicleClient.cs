@@ -43,6 +43,13 @@ public sealed record ClientSnapshot(ConnectionState Connection, bool SessionEsta
 /// <param name="timeProvider">Optional monotonic clock for receipt ages and periodic scheduling.</param>
 public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expectedVehicleId, Func<MovementIntent?> sampleInput, Func<BuoyancyTarget> sampleBuoyancy, TimeProvider? timeProvider = null) : IAsyncDisposable
 {
+    // Maximum age of status usable for sending control input.
+    private const int StatusFreshnessMs = 1000;
+    // Retry interval for hello or session confirmation.
+    private const int HandshakeRetryIntervalMs = 200;
+    // Retry interval while vehicle capabilities are unavailable.
+    private const int CapabilitiesRetryIntervalMs = 500;
+
     /// <summary>
     /// Monotonic clock used for local receipt ages, scheduling and freshness checks.
     /// </summary>
@@ -216,12 +223,22 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
     /// <summary>
     /// Checks that status belongs to the current control generation and is less than one second old.
     /// </summary>
-    private bool FreshStatus() => established && status != null && status.ControlGeneration == generation && clock.GetElapsedTime(statusAt).TotalMilliseconds < 1000;
+    private bool FreshStatus() => established && status != null && status.ControlGeneration == generation && clock.GetElapsedTime(statusAt).TotalMilliseconds < StatusFreshnessMs;
 
     /// <summary>
     /// Checks that advertised capabilities implement the agreed BCP v1 effort-control profile.
     /// </summary>
-    private bool Compatible() => capabilities is { SupportedModes: var modes, SupportedAxes: var axes, MovementIntervalMs: 50, CommandTimeoutMs: 500, TicketIntervalMs: 50, TicketLifetimeMs: 500, NeutralHoldMs: 1000, NeutralTolerance: 50 } && (modes & 1) != 0 && (axes & 7) == 7;
+    private bool Compatible() => capabilities is
+    {
+        SupportedModes: var modes,
+        SupportedAxes: var axes,
+        MovementIntervalMs: BcpV1.MovementIntervalMs,
+        CommandTimeoutMs: BcpV1.CommandTimeoutMs,
+        TicketIntervalMs: BcpV1.TicketIntervalMs,
+        TicketLifetimeMs: BcpV1.TicketLifetimeMs,
+        NeutralHoldMs: BcpV1.NeutralHoldMs,
+        NeutralTolerance: BcpV1.NeutralTolerance
+    } && (modes & 1) != 0 && (axes & 7) == 7;
 
     /// <summary>
     /// Checks the locally observed ticket lifetime and current control generation.
@@ -385,7 +402,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
 
                 switch (packet.Message)
                 {
-                    case ControlTicket t when t.ValidityMs == 500 && t.ControlGeneration >= generation:
+                    case ControlTicket t when t.ValidityMs == BcpV1.TicketLifetimeMs && t.ControlGeneration >= generation:
                         if (t.ControlGeneration != generation)
                         {
                             ticket = null;
@@ -450,7 +467,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
     /// </summary>
     private async Task PumpLoop(CancellationToken token)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(50), clock);
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(BcpV1.MovementIntervalMs), clock);
         try
         {
             while (await timer.WaitForNextTickAsync(token))
@@ -461,7 +478,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
                 {
                     if (!established)
                     {
-                        if (clock.GetElapsedTime(lastHello).TotalMilliseconds >= 200 || lastHello == 0)
+                        if (clock.GetElapsedTime(lastHello).TotalMilliseconds >= HandshakeRetryIntervalMs || lastHello == 0)
                         {
                             handshake = session == default ? new Hello(nonce, 1) : new SessionConfirm(nonce);
                             lastHello = clock.GetTimestamp();
@@ -469,13 +486,13 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
                     }
                     else
                     {
-                        if (capabilities == null && clock.GetElapsedTime(lastCapabilities).TotalMilliseconds >= 500)
+                        if (capabilities == null && clock.GetElapsedTime(lastCapabilities).TotalMilliseconds >= CapabilitiesRetryIntervalMs)
                         {
                             handshake = new GetCapabilities();
                             lastCapabilities = clock.GetTimestamp();
                         }
 
-                        heartbeat = clock.GetElapsedTime(lastHeartbeat).TotalMilliseconds >= 1000;
+                        heartbeat = clock.GetElapsedTime(lastHeartbeat).TotalMilliseconds >= BcpV1.HeartbeatIntervalMs;
                         if (heartbeat)
                         {
                             lastHeartbeat = clock.GetTimestamp();
@@ -485,7 +502,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
                         if (intent is MovementIntent value && FreshStatus() && Compatible() && !status!.HasUnknownControlValues && status.MovementOwner == MovementOwner.Pc && status.SafetyState != SafetyState.EmergencyStopLatched && FreshTicket())
                         {
                             // Converts newly sampled normalized effort to signed fixed-point wire units.
-                            static short Axis(double v) => checked((short)Math.Round(v * 1000));
+                            static short Axis(double v) => checked((short)Math.Round(v * BcpV1.FullEffort));
                             if (!double.IsFinite(value.Forward) || !double.IsFinite(value.Yaw) || !double.IsFinite(value.Dive) || Math.Abs(value.Forward) > 1 || Math.Abs(value.Yaw) > 1 || Math.Abs(value.Dive) > 1)
                             {
                                 throw new IOException("Invalid input sample.");
@@ -671,7 +688,7 @@ public sealed class VehicleClient(IByteTransport transport, OpaqueId128 expected
     /// </summary>
     private async ValueTask Write(BcpPacket packet, CancellationToken token)
     {
-        byte[] bytes = new byte[116];
+        byte[] bytes = new byte[FrameCodec.MaxWireSize];
         if (!BcpCodec.TryEncode(packet, WireDirection.PcToVehicle, bytes, out int n, out var failure))
         {
             throw new IOException($"Cannot encode command: {failure}");

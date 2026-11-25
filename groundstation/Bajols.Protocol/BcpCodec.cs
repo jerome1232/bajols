@@ -423,5 +423,5 @@ public static class BcpCodec
     /// <summary>
     /// Determines whether a fixed-point effort lies within the permitted normalized range.
     /// </summary>
-    private static bool Axis(short value) => value is >= -1000 and <= 1000;
+    private static bool Axis(short value) => value is >= -BcpV1.FullEffort and <= BcpV1.FullEffort;
 }

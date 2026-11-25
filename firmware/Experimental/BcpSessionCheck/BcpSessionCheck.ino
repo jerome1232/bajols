@@ -6,7 +6,10 @@ namespace bcp = bajols::bcp;
 // Toolchain fixture only; these depth limits are not hardware calibration.
 bcp::ControllerProfile MakeFixtureProfile() {
   bcp::ControllerProfile profile = {};
-  profile.capabilities = {1, 1, 7, 15, 255, 50, 500, 50, 500, 1000, 50};
+  profile.capabilities = {1, 1, 7, 15, 255, bcp::kMovementIntervalMs,
+                          bcp::kCommandTimeoutMs, bcp::kTicketIntervalMs,
+                          bcp::kTicketLifetimeMs, bcp::kNeutralHoldMs,
+                          bcp::kNeutralTolerance};
   profile.intervention_depth_mm = 4500;
   profile.release_depth_mm = 4000;
   profile.depth_stale_ms = 2000;

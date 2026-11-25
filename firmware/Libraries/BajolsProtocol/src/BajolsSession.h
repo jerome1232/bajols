@@ -298,9 +298,11 @@ class SessionManager {
   // Established PC session and its outgoing sequence.
   Connection current_;
   // Fixed ticket ring and next insertion slot.
-  TicketEntry tickets_[16];
+  static constexpr uint8_t kTicketCapacity = 16;
+  TicketEntry tickets_[kTicketCapacity];
   // Fixed historical result cache.
-  RequestEntry requests_[16];
+  static constexpr uint8_t kRequestCapacity = 16;
+  RequestEntry requests_[kRequestCapacity];
   // Independent fault causes and saturating recurrence counts.
   FaultState faults_[7];
   // Current movement freshness, independent of buoyancy.

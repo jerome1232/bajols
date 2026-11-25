@@ -6,7 +6,10 @@ namespace bcp = bajols::bcp;
 // Compile-only sensor limits; no sensors or buoyancy functions are implemented.
 bcp::ControllerProfile MakeProfile() {
   bcp::ControllerProfile profile = {};
-  profile.capabilities = {1, 1, 7, 0, 0, 50, 500, 50, 500, 1000, 50};
+  profile.capabilities = {1, 1, 7, 0, 0, bcp::kMovementIntervalMs,
+                          bcp::kCommandTimeoutMs, bcp::kTicketIntervalMs,
+                          bcp::kTicketLifetimeMs, bcp::kNeutralHoldMs,
+                          bcp::kNeutralTolerance};
   profile.intervention_depth_mm = 4500;
   profile.release_depth_mm = 4000;
   profile.depth_stale_ms = 2000;
@@ -38,7 +41,7 @@ volatile bool thrust_inhibited = true;
 
 // Initializes the protocol UART only; no receiver, EEPROM or actuator setup.
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(bcp::kSerialBaudRate);
   manager.SetOwner(bcp::MovementOwner::kPc, millis());
 }
 

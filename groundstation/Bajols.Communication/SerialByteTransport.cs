@@ -1,11 +1,19 @@
 using System.IO.Ports;
 using Bajols.Core;
+using Bajols.Protocol;
 
 namespace Bajols.Communication;
 
 /// <summary>Finite synchronous driver operations run off the UI thread. Cancellation closes the connection.</summary>
 public sealed class SerialByteTransport : IByteTransport
 {
+    // Data bits in the BCP v1 8N1 serial profile.
+    private const int DataBits = 8;
+    // Wait after opening the port to allow the board to restart.
+    private const int BoardStartupDelayMs = 1500;
+    // Maximum bytes requested from the serial driver per read.
+    private const int ReadChunkBytes = 256;
+
     /// <summary>
     /// Serial driver configured for the BCP v1 115200-baud, 8N1 profile.
     /// </summary>
@@ -36,7 +44,7 @@ public sealed class SerialByteTransport : IByteTransport
             throw new ArgumentException("Invalid bounded serial settings.");
         }
 
-        port = new(name, 115200, Parity.None, 8, StopBits.One)
+        port = new(name, BcpV1.SerialBaudRate, Parity.None, DataBits, StopBits.One)
         {
             Handshake = Handshake.None,
             DtrEnable = false,
@@ -61,7 +69,7 @@ public sealed class SerialByteTransport : IByteTransport
             await Task.Run(port.Open, cancellationToken);
             // Opening a USB serial port can reset an Arduino before modem
             // control settings take effect. Let its bootloader exit before sending BCP.
-            await Task.Delay(TimeSpan.FromMilliseconds(1500), cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(BoardStartupDelayMs), cancellationToken);
             State = ConnectionState.Connected;
         }
         catch
@@ -96,7 +104,7 @@ public sealed class SerialByteTransport : IByteTransport
         try
         {
             using var registration = cancellationToken.Register(CancelConnection);
-            byte[] chunk = new byte[Math.Min(256, buffer.Length)];
+            byte[] chunk = new byte[Math.Min(ReadChunkBytes, buffer.Length)];
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -129,7 +137,7 @@ public sealed class SerialByteTransport : IByteTransport
     /// </summary>
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
     {
-        if (buffer.Length is < 1 or > 116)
+        if (buffer.Length is < 1 or > FrameCodec.MaxWireSize)
         {
             throw new ArgumentException("Writes must contain a single bounded BCP frame.");
         }

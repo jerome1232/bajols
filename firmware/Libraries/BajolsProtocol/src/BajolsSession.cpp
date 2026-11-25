@@ -24,10 +24,14 @@ uint16_t Saturate(uint32_t value, uint16_t limit) {
 uint16_t Remaining(uint32_t now, uint32_t accepted, uint32_t issued) {
   uint32_t a = Age(now, accepted);
   uint32_t b = Age(now, issued);
-  if (a >= 500 || b >= 500) {
+  if (a >= kCommandTimeoutMs || b >= kTicketLifetimeMs) {
     return 0;
   }
-  return static_cast<uint16_t>(500 - (a > b ? a : b));
+  const uint32_t command_remaining = kCommandTimeoutMs - a;
+  const uint32_t ticket_remaining = kTicketLifetimeMs - b;
+  return static_cast<uint16_t>(command_remaining < ticket_remaining
+                                   ? command_remaining
+                                   : ticket_remaining);
 }
 // Compares only status fields which advance the change indicator.
 bool SameStatusShape(const VehicleStatus& a, const VehicleStatus& b) {
@@ -126,11 +130,13 @@ bool SessionManager::ValidProfile(const ControllerProfile& p) {
   }
   if ((c.supported_modes & ~1U) != 0 || (c.supported_axes & ~7U) != 0 ||
       (c.supported_systems & ~31U) != 0 ||
-      (c.supported_telemetry & ~255UL) != 0 || c.movement_interval_ms != 50 ||
-      c.command_timeout_ms != 500 || c.ticket_interval_ms != 50 ||
-      c.ticket_lifetime_ms != 500 || c.neutral_hold_ms != 1000 ||
-      c.neutral_tolerance != 50 || p.intervention_depth_mm == 0 ||
-      p.intervention_depth_mm > 5000 ||
+      (c.supported_telemetry & ~255UL) != 0 ||
+      c.movement_interval_ms != kMovementIntervalMs ||
+      c.command_timeout_ms != kCommandTimeoutMs ||
+      c.ticket_interval_ms != kTicketIntervalMs ||
+      c.ticket_lifetime_ms != kTicketLifetimeMs ||
+      c.neutral_hold_ms != kNeutralHoldMs || c.neutral_tolerance != kNeutralTolerance ||
+      p.intervention_depth_mm == 0 || p.intervention_depth_mm > 5000 ||
       p.release_depth_mm >= p.intervention_depth_mm || p.depth_stale_ms == 0 ||
       p.depth_stale_ms >= 32768) {
     return false;
@@ -144,8 +150,8 @@ bool SessionManager::ValidProfile(const ControllerProfile& p) {
 }
 
 bool SessionManager::Fresh(const Lease& lease, uint32_t now) {
-  return lease.active && Age(now, lease.accepted_at) < 500 &&
-         Age(now, lease.ticket_at) < 500;
+  return lease.active && Age(now, lease.accepted_at) < kCommandTimeoutMs &&
+         Age(now, lease.ticket_at) < kTicketLifetimeMs;
 }
 
 bool SessionManager::Configured(MovementOwner source) const {
@@ -181,8 +187,9 @@ bool SessionManager::BlockingFault() const {
 }
 
 bool SessionManager::Neutral() const {
-  return forward_ >= -50 && forward_ <= 50 && yaw_ >= -50 && yaw_ <= 50 &&
-         dive_ >= -50 && dive_ <= 50;
+  return forward_ >= -kNeutralTolerance && forward_ <= kNeutralTolerance &&
+         yaw_ >= -kNeutralTolerance && yaw_ <= kNeutralTolerance &&
+         dive_ >= -kNeutralTolerance && dive_ <= kNeutralTolerance;
 }
 
 void SessionManager::Changed() { ++revision_; }
@@ -267,7 +274,7 @@ void SessionManager::RecordFault(FaultCode code, bool active) {
 }
 
 void SessionManager::Advance(uint32_t now) {
-  if (pending_.active && Age(now, pending_.created_at) >= 2000) {
+  if (pending_.active && Age(now, pending_.created_at) >= kHandshakeTimeoutMs) {
     pending_.active = false;
   }
   bool depth_healthy = DepthHealthy(now);
@@ -276,7 +283,8 @@ void SessionManager::Advance(uint32_t now) {
   bool fresh = Fresh(movement_, now);
   bool expired = state_ == SafetyState::kArmed &&
                  ((movement_.active && !fresh) ||
-                  (!movement_.active && Age(now, armed_at_) >= 500));
+                  (!movement_.active &&
+                   Age(now, armed_at_) >= kCommandTimeoutMs));
   if (expired) {
     command_loss_latched_ = true;
   }
@@ -304,7 +312,7 @@ void SessionManager::Advance(uint32_t now) {
   } else if (!release_holding_) {
     release_holding_ = true;
     release_since_ = now;
-  } else if (Age(now, release_since_) >= 1000) {
+  } else if (Age(now, release_since_) >= kDepthReleaseHoldMs) {
     restricted_ = false;
     ChangeGeneration(true);
   }
@@ -503,9 +511,9 @@ CommandResultCode SessionManager::CheckTicket(uint32_t id, uint32_t generation,
   if (generation != generation_) {
     return CommandResultCode::kWrongControlGeneration;
   }
-  for (uint8_t i = 0; i < 16; ++i) {
+  for (uint8_t i = 0; i < kTicketCapacity; ++i) {
     if (id != 0 && tickets_[i].id == id &&
-        Age(now, tickets_[i].issued_at) < 500) {
+        Age(now, tickets_[i].issued_at) < kTicketLifetimeMs) {
       issued_at = tickets_[i].issued_at;
       return CommandResultCode::kAccepted;
     }
@@ -516,9 +524,9 @@ CommandResultCode SessionManager::CheckTicket(uint32_t id, uint32_t generation,
 bool SessionManager::AcceptMovement(uint32_t sequence, uint32_t issued_at,
                                     int16_t forward, int16_t yaw, int16_t dive,
                                     uint32_t now) {
-  if (sequence == 0 || emergency_latched_ || forward < -1000 ||
-      forward > 1000 || yaw < -1000 || yaw > 1000 || dive < -1000 ||
-      dive > 1000) {
+  if (sequence == 0 || emergency_latched_ || forward < -kFullEffort ||
+      forward > kFullEffort || yaw < -kFullEffort || yaw > kFullEffort ||
+      dive < -kFullEffort || dive > kFullEffort) {
     return false;
   }
   if (restricted_ && dive > 0) {
@@ -631,7 +639,8 @@ CommandResultCode SessionManager::ApplyAction(MessageType type, uint32_t now) {
   }
   if (!Fresh(movement_, now) ||
       (type == MessageType::kArm &&
-       (!neutral_holding_ || !Neutral() || Age(now, neutral_since_) < 1000))) {
+       (!neutral_holding_ || !Neutral() ||
+        Age(now, neutral_since_) < kNeutralHoldMs))) {
     return CommandResultCode::kNeutralHoldIncomplete;
   }
   if (type == MessageType::kArm) {
@@ -714,7 +723,7 @@ void SessionManager::Discrete(const Packet& packet, uint32_t now,
   CommandResult result = {request.id, request.type,
                           CommandResultCode::kAccepted, generation_};
   bool cached = false;
-  for (uint8_t i = 0; i < 16; ++i) {
+  for (uint8_t i = 0; i < kRequestCapacity; ++i) {
     const RequestEntry& old = requests_[i];
     if (request.id != 0 && old.id == request.id) {
       cached = true;
@@ -756,7 +765,7 @@ void SessionManager::Discrete(const Packet& packet, uint32_t now,
       result.control_generation = generation_;
       request.result = result;
       requests_[request_slot_] = request;
-      request_slot_ = (request_slot_ + 1) % 16;
+      request_slot_ = (request_slot_ + 1) % kRequestCapacity;
     }
   }
   Packet response = {};
@@ -847,7 +856,7 @@ void SessionManager::Process(const Packet& packet, uint32_t now,
       if (owner_ == MovementOwner::kPc) {
         ClearIntent();
       }
-      ticket_at_ = now - 50;
+      ticket_at_ = now - kTicketIntervalMs;
       heartbeat_at_ = now;
     }
     Packet reply = {};
@@ -986,9 +995,9 @@ VehicleStatus SessionManager::Status(uint32_t now) {
   }
   status.neutral_hold_progress_ms =
       neutral_holding_ && Fresh(movement_, now)
-          ? Saturate(Age(now, neutral_since_), 1000)
+          ? Saturate(Age(now, neutral_since_), kNeutralHoldMs)
           : 0;
-  if (status.neutral_hold_progress_ms < 1000) {
+  if (status.neutral_hold_progress_ms < kNeutralHoldMs) {
     status.arming_blockers |= 8U;
   }
   if (command_loss_latched_) {
@@ -1010,8 +1019,9 @@ VehicleStatus SessionManager::Status(uint32_t now) {
     status.arming_blockers |= 512U;
   }
   status.movement_age_ms =
-      accepted_in_generation_ ? Saturate(Age(now, movement_.accepted_at), 65534)
-                              : 65535;
+      accepted_in_generation_
+          ? Saturate(Age(now, movement_.accepted_at), kMaxKnownAgeMs)
+          : kUnknownAgeMs;
   status.movement_time_remaining_ms =
       movement_.active
           ? Remaining(now, movement_.accepted_at, movement_.ticket_at)
@@ -1102,7 +1112,7 @@ void SessionManager::Poll(uint32_t now, PacketSink& sink) {
   if (!current_.active) {
     return;
   }
-  if (Age(now, ticket_at_) >= 50) {
+  if (Age(now, ticket_at_) >= kTicketIntervalMs) {
     if (ticket_counter_ >= 0xFFFFFFFEUL) {
       CounterFailure();
       return;
@@ -1110,17 +1120,17 @@ void SessionManager::Poll(uint32_t now, PacketSink& sink) {
     TicketEntry& entry = tickets_[ticket_slot_];
     entry.id = ++ticket_counter_;
     entry.issued_at = now;
-    ticket_slot_ = (ticket_slot_ + 1) % 16;
+    ticket_slot_ = (ticket_slot_ + 1) % kTicketCapacity;
     ticket_at_ = now;
     Packet packet = {};
     packet.header.type = MessageType::kControlTicket;
-    packet.message.control_ticket = {entry.id, generation_, 500};
+    packet.message.control_ticket = {entry.id, generation_, kTicketLifetimeMs};
     if (!Emit(packet, current_, sink)) {
       return;
     }
   }
   VehicleStatus status = Status(now);
-  if (Age(now, status_at_) >= 200 ||
+  if (Age(now, status_at_) >= kStatusIntervalMs ||
       status.status_revision != previous_status_.status_revision) {
     SendStatus(now, sink);
     previous_status_.status_revision = revision_;
@@ -1131,7 +1141,7 @@ void SessionManager::Poll(uint32_t now, PacketSink& sink) {
   for (uint8_t i = 0; i < 7; ++i) {
     FaultState& fault = faults_[i];
     if (fault.active != fault.reported ||
-        (fault.active && Age(now, fault.reported_at) >= 1000)) {
+        (fault.active && Age(now, fault.reported_at) >= kFaultRepeatIntervalMs)) {
       Packet packet = {};
       packet.header.type = MessageType::kFault;
       packet.message.fault = {static_cast<FaultCode>(i + 1),
@@ -1144,7 +1154,7 @@ void SessionManager::Poll(uint32_t now, PacketSink& sink) {
       fault.reported_at = now;
     }
   }
-  if (Age(now, heartbeat_at_) >= 1000) {
+  if (Age(now, heartbeat_at_) >= kHeartbeatIntervalMs) {
     Packet packet = {};
     packet.header.type = MessageType::kHeartbeat;
     Emit(packet, current_, sink);

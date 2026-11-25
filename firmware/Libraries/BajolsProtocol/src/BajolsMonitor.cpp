@@ -8,6 +8,10 @@
 
 namespace bajols {
 namespace bcp {
+namespace {
+// Minimum interval between telemetry publication attempts.
+constexpr uint32_t kTelemetryIntervalMs = 200;
+}  // namespace
 
 MonitoringRuntime::ContextStorage::ContextStorage() : inactive(0) {}
 MonitoringRuntime::ContextStorage::~ContextStorage() {}
@@ -42,8 +46,9 @@ MonitoringRuntime::~MonitoringRuntime() {
 ControllerProfile MonitoringRuntime::Profile(uint32_t telemetry_mask,
                                              bool bench_control) {
   ControllerProfile profile = {};
-  profile.capabilities = {1,  0,   0,    0, telemetry_mask, 50, 500,
-                          50, 500, 1000, 50};
+  profile.capabilities = {1, 0, 0, 0, telemetry_mask, kMovementIntervalMs,
+                          kCommandTimeoutMs, kTicketIntervalMs, kTicketLifetimeMs,
+                          kNeutralHoldMs, kNeutralTolerance};
   // Required structural fields, never used as real sensor calibration here.
   profile.intervention_depth_mm = 5000;
   profile.release_depth_mm = 0;
@@ -99,23 +104,24 @@ void MonitoringRuntime::Step(BytePort& port, MillisecondClock& clock) {
   context.persistence.Step(clock.Now());
   uint32_t now = clock.Now();
   if (has_telemetry_ &&
-      static_cast<uint32_t>(now - telemetry_sent_at_) >= 200) {
+      static_cast<uint32_t>(now - telemetry_sent_at_) >= kTelemetryIntervalMs) {
     telemetry_sent_at_ = now;
     Telemetry aged = telemetry_;
     uint32_t elapsed = now - telemetry_at_;
     for (uint8_t i = 0; i < aged.count; ++i) {
       uint16_t age = aged.records[i].sample_age_ms;
-      if (age != 65535) {
+      if (age != kUnknownAgeMs) {
         aged.records[i].sample_age_ms =
-            elapsed >= 65534UL - age ? 65534
-                                     : static_cast<uint16_t>(age + elapsed);
+            elapsed >= static_cast<uint32_t>(kMaxKnownAgeMs) - age
+                ? kMaxKnownAgeMs
+                : static_cast<uint16_t>(age + elapsed);
       }
     }
     context.endpoint.PublishTelemetry(aged, now);
-    if (elapsed >= 65534) {
+    if (elapsed >= kMaxKnownAgeMs) {
       // Retain an explicitly unknown-age tombstone across future clock wraps.
       for (uint8_t i = 0; i < telemetry_.count; ++i) {
-        telemetry_.records[i].sample_age_ms = 65535;
+        telemetry_.records[i].sample_age_ms = kUnknownAgeMs;
       }
     }
   }

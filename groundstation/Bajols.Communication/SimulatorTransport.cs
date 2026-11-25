@@ -8,15 +8,20 @@ namespace Bajols.Communication;
 /// <summary>Bounded duplex wire link. Simulator gets no privileged bypass around the codec.</summary>
 public sealed class SimulatorTransport : IByteTransport
 {
+    // Number of frames buffered independently in each direction.
+    private const int QueuedFrameCapacity = 16;
+    // Interval between simulator updates in milliseconds.
+    private const int SimulationTickMs = 10;
+
     /// <summary>
     /// Bounded queue of whole encoded client frames awaiting peer processing.
     /// </summary>
-    private readonly Channel<byte[]> incoming = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(16) { FullMode = BoundedChannelFullMode.Wait });
+    private readonly Channel<byte[]> incoming = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(QueuedFrameCapacity) { FullMode = BoundedChannelFullMode.Wait });
 
     /// <summary>
     /// Bounded queue of whole encoded peer frames awaiting client reads.
     /// </summary>
-    private readonly Channel<byte[]> outgoing = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(16) { FullMode = BoundedChannelFullMode.Wait });
+    private readonly Channel<byte[]> outgoing = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(QueuedFrameCapacity) { FullMode = BoundedChannelFullMode.Wait });
 
     /// <summary>
     /// Monotonic source for the simulated onboard clock and periodic peer scheduling.
@@ -112,7 +117,7 @@ public sealed class SimulatorTransport : IByteTransport
     private async Task RunAsync(CancellationToken token)
     {
         var decoder = new BcpStreamDecoder(WireDirection.PcToVehicle);
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10), clock);
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(SimulationTickMs), clock);
         try
         {
             while (await timer.WaitForNextTickAsync(token))
@@ -163,7 +168,7 @@ public sealed class SimulatorTransport : IByteTransport
     /// </summary>
     private void Publish(BcpPacket packet)
     {
-        byte[] wire = new byte[116];
+        byte[] wire = new byte[FrameCodec.MaxWireSize];
         if (BcpCodec.TryEncode(packet, WireDirection.VehicleToPc, wire, out int length, out _))
         {
             outgoing.Writer.TryWrite(wire[..length]); // Congestion drops whole frames, never grows the queue.
@@ -282,7 +287,7 @@ public sealed class SimulatorTransport : IByteTransport
             throw new IOException("Simulator not connected.");
         }
 
-        if (buffer.Length is < 1 or > 116)
+        if (buffer.Length is < 1 or > FrameCodec.MaxWireSize)
         {
             throw new ArgumentException("Single bounded frame required.");
         }

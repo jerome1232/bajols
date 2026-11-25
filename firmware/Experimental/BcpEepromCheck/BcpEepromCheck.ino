@@ -14,7 +14,10 @@ bcp::IdentityJournal journal(storage, 0, 10);
 // No actual sensors or ballast controller are implemented in this check.
 bcp::ControllerProfile MakeProfile() {
   bcp::ControllerProfile profile = {};
-  profile.capabilities = {1, 1, 7, 0, 0, 50, 500, 50, 500, 1000, 50};
+  profile.capabilities = {1, 1, 7, 0, 0, bcp::kMovementIntervalMs,
+                          bcp::kCommandTimeoutMs, bcp::kTicketIntervalMs,
+                          bcp::kTicketLifetimeMs, bcp::kNeutralHoldMs,
+                          bcp::kNeutralTolerance};
   profile.intervention_depth_mm = 4500;
   profile.release_depth_mm = 4000;
   profile.depth_stale_ms = 2000;

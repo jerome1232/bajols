@@ -8,10 +8,41 @@ namespace Bajols.Configuration;
 /// </summary>
 public sealed record StationConfiguration
 {
+    // YAML revision understood by this loader.
+    private const int SupportedSchemaVersion = 1;
+    // Number of hexadecimal characters in a 128-bit vehicle ID.
+    private const int VehicleIdHexLength = 32;
+    // Reserved identity of the built-in simulator.
+    private const string SimulatorVehicleId = "42414A4F4C532D53494D554C41544F52";
+    // Baud rate required by the BCP v1 serial profile.
+    private const int RequiredBaudRate = 115200;
+    // Minimum finite driver timeout for either serial operation.
+    private const int MinSerialTimeoutMs = 10;
+    // Maximum wait per serial driver read.
+    private const int MaxReadTimeoutMs = 200;
+    // Maximum wait per serial driver write.
+    private const int MaxWriteTimeoutMs = 300;
+    // Minimum accepted serial driver buffer size.
+    private const int MinBufferBytes = 256;
+    // Maximum accepted serial driver buffer size.
+    private const int MaxBufferBytes = 65536;
+    // Maximum normalized dead zone as a fraction of full input.
+    private const double MaxDeadZone = 0.05;
+    // Minimum accepted lifetime for an input snapshot.
+    private const int MinInputFreshnessMs = 50;
+    // Maximum accepted lifetime for an input snapshot.
+    private const int MaxInputFreshnessMs = 250;
+    // Minimum accepted age limit for displayed telemetry.
+    private const int MinTelemetryFreshnessMs = 100;
+    // Maximum accepted age limit for displayed telemetry.
+    private const int MaxTelemetryFreshnessMs = 5000;
+    // Maximum YAML file size in bytes before parsing.
+    private const int MaxConfigurationBytes = 16 * 1024;
+
     /// <summary>
     /// Supported YAML schema revision; currently only version one is accepted.
     /// </summary>
-    public int SchemaVersion { get; init; } = 1;
+    public int SchemaVersion { get; init; } = SupportedSchemaVersion;
 
     /// <summary>
     /// Selected link implementation: simulator or serial.
@@ -26,12 +57,12 @@ public sealed record StationConfiguration
     /// <summary>
     /// Expected provisioned vehicle identity as 32 hexadecimal characters in wire-byte order.
     /// </summary>
-    public string ExpectedVehicleId { get; init; } = "42414A4F4C532D53494D554C41544F52";
+    public string ExpectedVehicleId { get; init; } = SimulatorVehicleId;
 
     /// <summary>
     /// Serial baud rate; BCP v1 requires 115200.
     /// </summary>
-    public int BaudRate { get; init; } = 115200;
+    public int BaudRate { get; init; } = RequiredBaudRate;
 
     /// <summary>
     /// Finite serial read timeout in milliseconds used to keep cancellation responsive.
@@ -51,7 +82,7 @@ public sealed record StationConfiguration
     /// <summary>
     /// Finite normalized input dead zone, limited to zero through five percent.
     /// </summary>
-    public double DeadZone { get; init; } = 0.05;
+    public double DeadZone { get; init; } = MaxDeadZone;
 
     /// <summary>
     /// Maximum local operator-snapshot age in milliseconds before movement renewal stops.
@@ -68,7 +99,7 @@ public sealed record StationConfiguration
     /// </summary>
     public void Validate()
     {
-        if (SchemaVersion != 1)
+        if (SchemaVersion != SupportedSchemaVersion)
         {
             throw new ConfigurationException("Unsupported schema_version; expected 1.");
         }
@@ -78,7 +109,7 @@ public sealed record StationConfiguration
             throw new ConfigurationException("transport must be simulator or serial.");
         }
 
-        if (ExpectedVehicleId is null || ExpectedVehicleId.Length != 32 || !ExpectedVehicleId.All(Uri.IsHexDigit) || ExpectedVehicleId.All(c => c == '0'))
+        if (ExpectedVehicleId is null || ExpectedVehicleId.Length != VehicleIdHexLength || !ExpectedVehicleId.All(Uri.IsHexDigit) || ExpectedVehicleId.All(c => c == '0'))
         {
             throw new ConfigurationException("expected_vehicle_id must be exactly 32 hexadecimal characters.");
         }
@@ -88,37 +119,38 @@ public sealed record StationConfiguration
             throw new ConfigurationException("serial transport requires a port.");
         }
 
-        if (Transport == "serial" && ExpectedVehicleId.Equals("42414A4F4C532D53494D554C41544F52", StringComparison.OrdinalIgnoreCase))
+        if (Transport == "serial" && ExpectedVehicleId.Equals(SimulatorVehicleId, StringComparison.OrdinalIgnoreCase))
         {
             throw new ConfigurationException("Configure the physical vehicle ID before selecting serial.");
         }
 
-        if (BaudRate != 115200)
+        if (BaudRate != RequiredBaudRate)
         {
             throw new ConfigurationException("BCP v1 serial profile requires 115200 baud.");
         }
 
-        if (ReadTimeoutMs is < 10 or > 200 || WriteTimeoutMs is < 10 or > 300)
+        if (ReadTimeoutMs is < MinSerialTimeoutMs or > MaxReadTimeoutMs ||
+            WriteTimeoutMs is < MinSerialTimeoutMs or > MaxWriteTimeoutMs)
         {
             throw new ConfigurationException("Serial timeouts exceed bounded control-link limits.");
         }
 
-        if (BufferBytes is < 256 or > 65536)
+        if (BufferBytes is < MinBufferBytes or > MaxBufferBytes)
         {
             throw new ConfigurationException("buffer_bytes must be 256..65536.");
         }
 
-        if (!double.IsFinite(DeadZone) || DeadZone is < 0 or > 0.05)
+        if (!double.IsFinite(DeadZone) || DeadZone is < 0 or > MaxDeadZone)
         {
             throw new ConfigurationException("dead_zone must be finite and between 0 and 0.05.");
         }
 
-        if (InputFreshnessMs is < 50 or > 250)
+        if (InputFreshnessMs is < MinInputFreshnessMs or > MaxInputFreshnessMs)
         {
             throw new ConfigurationException("input_freshness_ms must be 50..250.");
         }
 
-        if (TelemetryFreshnessMs is < 100 or > 5000)
+        if (TelemetryFreshnessMs is < MinTelemetryFreshnessMs or > MaxTelemetryFreshnessMs)
         {
             throw new ConfigurationException("telemetry_freshness_ms must be 100..5000.");
         }
@@ -134,7 +166,7 @@ public sealed record StationConfiguration
             throw new ConfigurationException($"Configuration not found: {path}");
         }
 
-        if (new FileInfo(path).Length > 16384)
+        if (new FileInfo(path).Length > MaxConfigurationBytes)
         {
             throw new ConfigurationException("Configuration exceeds 16 KiB.");
         }

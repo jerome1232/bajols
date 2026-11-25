@@ -12,6 +12,13 @@ public sealed record BcpFrame(byte MessageType, SessionId Session, uint Sequence
 /// <summary>Stateless envelope codec. Unknown message types are permitted here, not in BcpCodec.</summary>
 public static class FrameCodec
 {
+    // Initial register for CRC-16/CCITT-FALSE.
+    private const ushort CrcInitialValue = 0xFFFF;
+    // Generator polynomial for CRC-16/CCITT-FALSE.
+    private const ushort CrcPolynomial = 0x1021;
+    // Register bit tested before each CRC left shift.
+    private const ushort CrcHighBit = 0x8000;
+
     /// <summary>
     /// BCP wire-envelope version emitted and accepted by this codec.
     /// </summary>
@@ -42,13 +49,13 @@ public static class FrameCodec
     /// </summary>
     public static ushort ComputeCrc(ReadOnlySpan<byte> data)
     {
-        ushort crc = 0xFFFF;
+        ushort crc = CrcInitialValue;
         foreach (byte value in data)
         {
             crc ^= (ushort)(value << 8);
             for (int bit = 0; bit < 8; bit++)
             {
-                crc = (ushort)((crc & 0x8000) != 0 ? (crc << 1) ^ 0x1021 : crc << 1);
+                crc = (ushort)((crc & CrcHighBit) != 0 ? (crc << 1) ^ CrcPolynomial : crc << 1);
             }
         }
 

@@ -5,6 +5,10 @@
 namespace bajols {
 namespace bcp {
 namespace {
+// CRC-16/CCITT-FALSE register parameters.
+constexpr uint16_t kCrcInitialValue = 0xFFFF;
+constexpr uint16_t kCrcPolynomial = 0x1021;
+constexpr uint16_t kCrcHighBit = 0x8000;
 
 // Reads one little-endian unsigned value without alignment assumptions.
 uint32_t ReadUnsigned(const uint8_t* bytes, size_t width) {
@@ -256,7 +260,7 @@ bool ValidatePayload(MessageType type, const uint8_t* bytes, size_t length,
   if (type == MessageType::kMovementCommand) {
     for (size_t offset = 8; offset < 14; offset += 2) {
       int16_t axis = ReadI16(bytes + offset);
-      if (axis < -1000 || axis > 1000) {
+      if (axis < -kFullEffort || axis > kFullEffort) {
         return Fail(Error::kInvalidPayload, error);
       }
     }
@@ -313,12 +317,13 @@ bool ValidSenderValues(const Packet& packet) {
 }  // namespace
 
 uint16_t ComputeCrc(const uint8_t* data, size_t length) {
-  uint16_t crc = 0xFFFF;
+  uint16_t crc = kCrcInitialValue;
   for (size_t i = 0; i < length; ++i) {
     crc ^= static_cast<uint16_t>(data[i]) << 8;
     for (uint8_t bit = 0; bit < 8; ++bit) {
-      crc = static_cast<uint16_t>((crc & 0x8000) != 0 ? (crc << 1) ^ 0x1021
-                                                      : crc << 1);
+      crc = static_cast<uint16_t>((crc & kCrcHighBit) != 0
+                                      ? (crc << 1) ^ kCrcPolynomial
+                                      : crc << 1);
     }
   }
   return crc;

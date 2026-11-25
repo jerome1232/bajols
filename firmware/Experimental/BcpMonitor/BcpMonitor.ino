@@ -57,7 +57,7 @@ bcp::ArduinoMillisecondClock clock_source;
 
 // Starts bounded boot recovery; does not provision or wait for a terminal.
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(bcp::kSerialBaudRate);
   if (bcp::InitializeBoardStorage(storage)) {
     runtime.Begin();
   }
