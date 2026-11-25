@@ -27,6 +27,11 @@ between line transceivers at both ends. The radio interface is **SPI**, not a UA
 
 Four-wire full-duplex RS-422/RS-485 is recommended for the tether: one pair in each
 direction, so commands and telemetry do not require cable-direction switching.
+The tether needs two 3.3 V UART to four-wire full-duplex RS-422/RS-485 modules,
+one at the buoy and one at the vehicle. Each module needs separate differential
+TX and RX terminals and must support 115200 baud. The modules listed below are
+examples that meet this interface requirement.
+
 The RF link still needs transmit/receive scheduling; a full-duplex tether does not
 make a single RFM69HCW transmit and receive simultaneously.
 
